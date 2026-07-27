@@ -410,10 +410,12 @@ h2 {
   pointer-events: none;
 }
 
-.history-group polyline {
+.history-group .history-segment {
   fill: none;
-  stroke: rgba(213, 255, 240, 0.5);
-  stroke-width: 0.09;
+  stroke: rgb(213, 255, 240);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
 
@@ -422,17 +424,17 @@ h2 {
   vector-effect: non-scaling-stroke;
 }
 
-.history-group.departure polyline {
-  stroke: rgba(110, 195, 255, 0.58);
+.history-group.departure .history-segment {
+  stroke: rgb(110, 195, 255);
 }
 
 .history-group.departure circle {
   fill: rgba(110, 195, 255, 0.78);
 }
 
-.history-group.selected polyline {
+.history-group.selected .history-segment {
   stroke: var(--mint-strong);
-  stroke-width: 0.14;
+  stroke-width: 1.7;
 }
 
 .history-group.selected circle {

@@ -55,10 +55,31 @@ test("includes terminal-scope completion and handoff behavior", async () => {
   assert.match(simulator, /Touchdown Runway 21\. Landing complete\./);
   assert.match(simulator, /handed to nearby airspace\./);
   assert.match(simulator, /\["DCT", "DIRECT"\]/);
-  assert.match(simulator, /next\.track =/);
+  assert.match(simulator, /appendGroundTrackSample/);
   assert.match(css, /ksmo-terminal-satellite\.jpg/);
-  assert.match(css, /\.history-group polyline/);
+  assert.match(css, /\.history-group \.history-segment/);
   assert.match(css, /\.flight-strip\.departure/);
+});
+
+test("uses timestamped ground-track history with a fading fixed-time trail", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /TRACK_SAMPLE_SECONDS = 1/);
+  assert.match(simulator, /TRACK_HISTORY_SECONDS = 15/);
+  assert.match(simulator, /groundSpeed:\s*number/);
+  assert.match(simulator, /groundTrack:\s*number/);
+  assert.match(simulator, /function groundMotionBetween/);
+  assert.match(simulator, /next\.groundSpeed = instantaneousMotion\.groundSpeed/);
+  assert.match(simulator, /function smoothGroundTrack/);
+  assert.match(simulator, /tick - point\.tick <= TRACK_HISTORY_TICKS/);
+  assert.match(simulator, /className="history-segment"/);
+  assert.match(simulator, /opacity=\{0\.12 \+ recency \* 0\.72\}/);
+  assert.doesNotMatch(simulator, /track\.slice\(-13\)/);
+  assert.match(css, /stroke-linecap:\s*round/);
+  assert.match(css, /vector-effect:\s*non-scaling-stroke/);
 });
 
 test("pause is a planning state with compact, boxless traffic displays", async () => {

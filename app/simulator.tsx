@@ -19,6 +19,9 @@ type FlightStatus =
 type TrackPoint = {
   x: number;
   y: number;
+  tick: number;
+  groundSpeed: number;
+  groundTrack: number;
 };
 
 type Aircraft = {
@@ -35,6 +38,8 @@ type Aircraft = {
   targetAltitude: number;
   speed: number;
   targetSpeed: number;
+  groundSpeed?: number;
+  groundTrack?: number;
   landingCleared?: boolean;
   approach?: string;
   exitFix?: string;
@@ -77,6 +82,15 @@ const RUNWAY = {
   threshold: { x: 52.2, y: 47.9 },
   rollout: { x: 49.4, y: 50.7 },
 };
+
+const SIMULATION_TICKS_PER_SECOND = 4;
+const TRACK_SAMPLE_SECONDS = 1;
+const TRACK_HISTORY_SECONDS = 15;
+const TRACK_SAMPLE_TICKS =
+  SIMULATION_TICKS_PER_SECOND * TRACK_SAMPLE_SECONDS;
+const TRACK_HISTORY_TICKS =
+  SIMULATION_TICKS_PER_SECOND * TRACK_HISTORY_SECONDS;
+const SCOPE_NM_PER_WORLD_UNIT = 0.35;
 
 const INITIAL_WORLD: World = {
   tick: 0,
@@ -352,22 +366,89 @@ function headingToPoint(
   );
 }
 
+function groundMotionBetween(
+  from: Pick<TrackPoint, "x" | "y" | "tick">,
+  to: Pick<TrackPoint, "x" | "y" | "tick">,
+) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distanceNm = Math.hypot(dx, dy) * SCOPE_NM_PER_WORLD_UNIT;
+  const elapsedSeconds = Math.max(
+    (to.tick - from.tick) / SIMULATION_TICKS_PER_SECOND,
+    1 / SIMULATION_TICKS_PER_SECOND,
+  );
+  const groundSpeed = (distanceNm * 3600) / elapsedSeconds;
+  const groundTrack =
+    distanceNm > 0.0001
+      ? ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360
+      : 0;
+  return { groundSpeed, groundTrack };
+}
+
+function appendGroundTrackSample(
+  flight: Aircraft,
+  previousPosition: Pick<TrackPoint, "x" | "y" | "tick">,
+  tick: number,
+) {
+  const retained = flight.track.filter(
+    (point) => tick - point.tick <= TRACK_HISTORY_TICKS,
+  );
+  if (tick % TRACK_SAMPLE_TICKS !== 0) return retained;
+
+  const current = { x: flight.x, y: flight.y, tick };
+  const origin = retained.at(-1) ?? previousPosition;
+  const motion = groundMotionBetween(origin, current);
+  const groundTrack =
+    motion.groundSpeed > 0.5
+      ? motion.groundTrack
+      : retained.at(-1)?.groundTrack ?? 0;
+
+  return [
+    ...retained,
+    {
+      ...current,
+      groundSpeed: motion.groundSpeed,
+      groundTrack,
+    },
+  ];
+}
+
+function smoothGroundTrack(points: TrackPoint[]) {
+  if (points.length < 3) return points;
+  return points.map((point, index) => {
+    if (index === 0 || index === points.length - 1) return point;
+    const previous = points[index - 1];
+    const following = points[index + 1];
+    return {
+      ...point,
+      x: previous.x * 0.16 + point.x * 0.68 + following.x * 0.16,
+      y: previous.y * 0.16 + point.y * 0.68 + following.y * 0.16,
+    };
+  });
+}
+
+function currentGroundMotion(flight: Aircraft) {
+  const latest = flight.track.at(-1);
+  return {
+    groundSpeed: flight.groundSpeed ?? latest?.groundSpeed ?? 0,
+    groundTrack: flight.groundTrack ?? latest?.groundTrack ?? 0,
+  };
+}
+
 function stepWorld(previous: World): World {
   let world: World = { ...previous, tick: previous.tick + 1 };
   const stepped = previous.aircraft.map((flight) => {
     if (flight.completed || flight.status === "HANDOFF") return flight;
 
     const next = { ...flight };
+    const previousPosition = {
+      x: flight.x,
+      y: flight.y,
+      tick: previous.tick,
+    };
     const onGround = ["HOLD_SHORT", "LINE_UP", "TAKEOFF_ROLL"].includes(
       next.status,
     );
-
-    if (
-      previous.tick % 5 === 0 &&
-      !["HOLD_SHORT", "LINE_UP"].includes(next.status)
-    ) {
-      next.track = [...next.track.slice(-13), { x: next.x, y: next.y }];
-    }
 
     if (next.status === "HOLDING" && next.holdFix) {
       const holdFix = findNavFix(next.holdFix);
@@ -515,6 +596,31 @@ function stepWorld(previous: World): World {
         world,
         "warning",
         `${next.callsign}: Arrival left controlled airspace without landing.`,
+      );
+    }
+
+    const instantaneousMotion = groundMotionBetween(previousPosition, {
+      x: next.x,
+      y: next.y,
+      tick: world.tick,
+    });
+    next.groundSpeed = instantaneousMotion.groundSpeed;
+    if (instantaneousMotion.groundSpeed > 0.5) {
+      next.groundTrack = instantaneousMotion.groundTrack;
+    }
+
+    if (
+      !next.completed &&
+      !["HOLD_SHORT", "LINE_UP", "LANDED"].includes(next.status)
+    ) {
+      next.track = appendGroundTrackSample(
+        next,
+        previousPosition,
+        world.tick,
+      );
+    } else {
+      next.track = next.track.filter(
+        (point) => world.tick - point.tick <= TRACK_HISTORY_TICKS,
       );
     }
 
@@ -1292,25 +1398,40 @@ export function RadarSimulator() {
                 aria-hidden="true"
               >
                 {radarAircraft.map((flight) => {
-                  const points = [
+                  const groundMotion = currentGroundMotion(flight);
+                  const points = smoothGroundTrack([
                     ...flight.track,
-                    { x: flight.x, y: flight.y },
-                  ];
+                    {
+                      x: flight.x,
+                      y: flight.y,
+                      tick: world.tick,
+                      ...groundMotion,
+                    },
+                  ]);
                   return (
                     <g
                       className={`history-group ${flight.kind} ${activeSelection === flight.callsign ? "selected" : ""}`}
                       key={flight.callsign}
                     >
-                      <polyline
-                        points={points.map((point) => `${point.x},${point.y}`).join(" ")}
-                      />
+                      {points.slice(1).map((point, index) => {
+                        const previousPoint = points[index];
+                        const recency = (index + 1) / Math.max(points.length - 1, 1);
+                        return (
+                          <polyline
+                            className="history-segment"
+                            key={`${flight.callsign}-segment-${point.tick}-${index}`}
+                            opacity={0.12 + recency * 0.72}
+                            points={`${previousPoint.x},${previousPoint.y} ${point.x},${point.y}`}
+                          />
+                        );
+                      })}
                       {flight.track.map((point, index) => (
                         <circle
                           cx={point.x}
                           cy={point.y}
-                          key={`${flight.callsign}-${index}`}
+                          key={`${flight.callsign}-history-${point.tick}`}
                           r={activeSelection === flight.callsign ? 0.16 : 0.12}
-                          opacity={(index + 2) / (flight.track.length + 2)}
+                          opacity={0.12 + ((index + 1) / Math.max(flight.track.length, 1)) * 0.68}
                         />
                       ))}
                     </g>
@@ -1318,35 +1439,40 @@ export function RadarSimulator() {
                 })}
               </svg>
 
-              {radarAircraft.map((flight) => (
-                <button
-                  className={`aircraft-target ${activeSelection === flight.callsign ? "selected" : ""} ${flight.kind}`}
-                  key={flight.callsign}
-                  style={{
-                    left: `${clamp(flight.x, 1, 98)}%`,
-                    top: `${clamp(flight.y, 1, 97)}%`,
-                  }}
-                  onClick={() => {
-                    setSelected(flight.callsign);
-                    setCommand(`${flight.callsign} `);
-                    inputRef.current?.focus();
-                  }}
-                  aria-label={`Select ${flight.callsign}, altitude ${Math.round(flight.altitude)} feet, heading ${Math.round(flight.heading)}`}
-                >
-                  <span
-                    className="target-chevron"
-                    style={{ transform: `rotate(${flight.heading}deg)` }}
-                    aria-hidden="true"
-                  />
-                  <span className="data-tag">
-                    <strong>{flight.callsign}</strong>
-                    <span>
-                      {altitudeLabel(flight.altitude)} ·{" "}
-                      {Math.round(flight.speed)}KT
+              {radarAircraft.map((flight) => {
+                const groundMotion = currentGroundMotion(flight);
+                return (
+                  <button
+                    className={`aircraft-target ${activeSelection === flight.callsign ? "selected" : ""} ${flight.kind}`}
+                    key={flight.callsign}
+                    style={{
+                      left: `${clamp(flight.x, 1, 98)}%`,
+                      top: `${clamp(flight.y, 1, 97)}%`,
+                    }}
+                    onClick={() => {
+                      setSelected(flight.callsign);
+                      setCommand(`${flight.callsign} `);
+                      inputRef.current?.focus();
+                    }}
+                    aria-label={`Select ${flight.callsign}, altitude ${Math.round(flight.altitude)} feet, ground track ${Math.round(groundMotion.groundTrack)}`}
+                  >
+                    <span
+                      className="target-chevron"
+                      style={{
+                        transform: `rotate(${groundMotion.groundTrack}deg)`,
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span className="data-tag">
+                      <strong>{flight.callsign}</strong>
+                      <span>
+                        {altitudeLabel(flight.altitude)} ·{" "}
+                        {Math.round(groundMotion.groundSpeed)}KT
+                      </span>
                     </span>
-                  </span>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
 
               <div className="map-title">
                 <span>SMO TOWER · 35 NM TERMINAL SCOPE</span>
