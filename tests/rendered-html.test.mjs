@@ -59,3 +59,22 @@ test("includes terminal-scope completion and handoff behavior", async () => {
   assert.match(css, /\.history-group polyline/);
   assert.match(css, /\.flight-strip\.departure/);
 });
+
+test("pause is a planning state with compact, boxless traffic displays", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /if \(paused\) return;/);
+  assert.match(simulator, /Clearance queued for resume/);
+  assert.match(simulator, /queuedCommands\.reduce/);
+  assert.match(simulator, /Traffic and clock frozen/);
+  assert.match(simulator, /flightCardRoute/);
+  assert.doesNotMatch(simulator, /<b>\{flight\.kind/);
+
+  const dataTag = css.match(/\.data-tag\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.doesNotMatch(dataTag, /\bbackground\s*:|\bborder(?:-\w+)?\s*:|\boutline\s*:/);
+  assert.match(css, /\.pause-overlay\s*\{[^}]*inset:\s*0/s);
+  assert.match(css, /\.flight-strip\s*\{[^}]*min-height:\s*49px/s);
+});

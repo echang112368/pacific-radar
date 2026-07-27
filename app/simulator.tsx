@@ -628,11 +628,21 @@ function altitudeLabel(altitude: number) {
   return String(Math.round(altitude / 100)).padStart(3, "0");
 }
 
+function flightCardRoute(flight: Aircraft) {
+  const route =
+    flight.kind === "arrival" ? "RWY 21" : `EXIT ${flight.exitFix ?? "TBD"}`;
+  if (["INBOUND", "DEPARTURE"].includes(flight.status)) return route;
+  return `${route} · ${statusLabel(flight.status)}`;
+}
+
 export function RadarSimulator() {
   const [world, setWorld] = useState<World>(INITIAL_WORLD);
   const [selected, setSelected] = useState<string | null>("N172SP");
   const [command, setCommand] = useState("");
   const [paused, setPaused] = useState(false);
+  const [queuedCommands, setQueuedCommands] = useState<
+    { callsign: string; command: string }[]
+  >([]);
   const [showHelp, setShowHelp] = useState(false);
   const [showSatellite, setShowSatellite] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -698,28 +708,69 @@ export function RadarSimulator() {
     return result;
   }, [visibleAircraft]);
 
+  const dispatchCommand = (value: string) => {
+    if (!activeSelection) return;
+    if (paused) {
+      setQueuedCommands((current) => [
+        ...current,
+        { callsign: activeSelection, command: value },
+      ]);
+      setWorld((current) =>
+        appendEvent(
+          current,
+          "system",
+          `${activeSelection}: Clearance queued for resume — ${value.trim().toUpperCase()}.`,
+        ),
+      );
+      return;
+    }
+    setWorld((current) =>
+      executeCommand(current, value, activeSelection),
+    );
+  };
+
   const transmit = (event?: FormEvent) => {
     event?.preventDefault();
     if (!command.trim()) return;
-    setWorld((current) =>
-      executeCommand(current, command, activeSelection),
-    );
+    dispatchCommand(command);
     setCommand("");
     inputRef.current?.focus();
   };
 
   const runQuickCommand = (value: string) => {
-    if (!activeSelection) return;
-    setWorld((current) =>
-      executeCommand(current, value, activeSelection),
-    );
+    dispatchCommand(value);
     inputRef.current?.focus();
+  };
+
+  const pauseSimulation = () => setPaused(true);
+
+  const resumeSimulation = () => {
+    if (queuedCommands.length > 0) {
+      setWorld((current) =>
+        queuedCommands.reduce(
+          (nextWorld, queued) =>
+            executeCommand(nextWorld, queued.command, queued.callsign),
+          current,
+        ),
+      );
+      setQueuedCommands([]);
+    }
+    setPaused(false);
+  };
+
+  const togglePause = () => {
+    if (paused) {
+      resumeSimulation();
+    } else {
+      pauseSimulation();
+    }
   };
 
   const reset = () => {
     setWorld(INITIAL_WORLD);
     setSelected("N172SP");
     setCommand("");
+    setQueuedCommands([]);
     setPaused(false);
   };
 
@@ -769,7 +820,7 @@ export function RadarSimulator() {
           </button>
           <button
             className={paused ? "primary-button" : "ghost-button"}
-            onClick={() => setPaused((value) => !value)}
+            onClick={togglePause}
           >
             {paused ? "Resume" : "Pause"}
           </button>
@@ -874,19 +925,8 @@ export function RadarSimulator() {
                   <span className="data-tag">
                     <strong>{flight.callsign}</strong>
                     <span>
-                      {altitudeLabel(flight.altitude)}
-                      {flight.targetAltitude > flight.altitude + 30
-                        ? "↑"
-                        : flight.targetAltitude < flight.altitude - 30
-                          ? "↓"
-                          : "·"}{" "}
-                      {String(Math.round(flight.heading)).padStart(3, "0")}°
-                    </span>
-                    <span>
-                      {Math.round(flight.speed)}KT ·{" "}
-                      {flight.kind === "departure" && flight.exitFix
-                        ? flight.exitFix
-                        : statusLabel(flight.status)}
+                      {altitudeLabel(flight.altitude)} ·{" "}
+                      {Math.round(flight.speed)}KT
                     </span>
                   </span>
                 </button>
@@ -904,7 +944,7 @@ export function RadarSimulator() {
                 >
                   SAT
                 </button>
-                <button onClick={() => setPaused((value) => !value)}>
+                <button onClick={togglePause}>
                   {paused ? "▶" : "Ⅱ"}
                 </button>
               </div>
@@ -921,9 +961,21 @@ export function RadarSimulator() {
               )}
 
               {paused && (
-                <div className="pause-overlay">
-                  <span>Simulation paused</span>
-                  <button onClick={() => setPaused(false)}>Resume shift</button>
+                <div
+                  className="pause-overlay"
+                  role="status"
+                  aria-label="Simulation paused. Aircraft movement and simulation clock are frozen."
+                >
+                  <div className="pause-card">
+                    <span>Simulation paused</span>
+                    <small>
+                      Traffic and clock frozen ·{" "}
+                      {queuedCommands.length === 0
+                        ? "commands remain available"
+                        : `${queuedCommands.length} clearance${queuedCommands.length === 1 ? "" : "s"} queued`}
+                    </small>
+                    <button onClick={resumeSimulation}>Resume shift</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1012,7 +1064,7 @@ export function RadarSimulator() {
               <span>{visibleAircraft.length} active</span>
             </div>
             <div className="strip-stack">
-              {visibleAircraft.map((flight, index) => (
+              {visibleAircraft.map((flight) => (
                 <button
                   className={`flight-strip ${flight.kind} ${activeSelection === flight.callsign ? "selected" : ""}`}
                   key={flight.callsign}
@@ -1021,29 +1073,19 @@ export function RadarSimulator() {
                     inputRef.current?.focus();
                   }}
                 >
-                  <span className="strip-sequence">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
                   <span className="strip-main">
-                    <span className="strip-topline">
-                      <strong>{flight.callsign}</strong>
-                      <b>{flight.kind === "arrival" ? "ARRIVAL" : "DEPARTURE"}</b>
-                    </span>
+                    <strong>{flight.callsign}</strong>
                     <small>
                       {flight.type} · WTC {flight.wake} · HDG{" "}
-                      {String(Math.round(flight.heading)).padStart(3, "0")}°
+                      {String(Math.round(flight.heading)).padStart(3, "0")}° ·{" "}
+                      {Math.round(flight.speed)}KT
                     </small>
                   </span>
                   <span className="strip-data">
                     <strong>{altitudeLabel(flight.altitude)}</strong>
-                    <small>{Math.round(flight.speed)}KT</small>
+                    <small>ALT</small>
                   </span>
-                  <span className="strip-status">
-                    {flight.kind === "arrival"
-                      ? statusLabel(flight.status)
-                      : `EXIT ${flight.exitFix ?? "TBD"} · ${statusLabel(flight.status)}`}
-                  </span>
-                  <span className="strip-locate" aria-hidden="true">⌖</span>
+                  <span className="strip-status">{flightCardRoute(flight)}</span>
                 </button>
               ))}
             </div>
