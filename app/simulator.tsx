@@ -84,92 +84,7 @@ const INITIAL_WORLD: World = {
   safeOperations: 0,
   separationLosses: 0,
   runwayIncursions: 0,
-  aircraft: [
-    {
-      callsign: "N172SP",
-      type: "C172",
-      wake: "L",
-      kind: "arrival",
-      status: "INBOUND",
-      x: 99.2,
-      y: 9,
-      heading: 246,
-      targetHeading: 246,
-      altitude: 4600,
-      targetAltitude: 4600,
-      speed: 115,
-      targetSpeed: 115,
-      track: [],
-    },
-    {
-      callsign: "JSX422",
-      type: "E145",
-      wake: "M",
-      kind: "arrival",
-      status: "INBOUND",
-      x: 99.4,
-      y: 76,
-      heading: 304,
-      targetHeading: 304,
-      altitude: 6200,
-      targetAltitude: 6200,
-      speed: 190,
-      targetSpeed: 190,
-      track: [],
-    },
-    {
-      callsign: "N91GX",
-      type: "C25A",
-      wake: "M",
-      kind: "arrival",
-      status: "INBOUND",
-      x: 17,
-      y: 0.6,
-      heading: 154,
-      targetHeading: 154,
-      altitude: 7200,
-      targetAltitude: 7200,
-      speed: 220,
-      targetSpeed: 220,
-      track: [],
-    },
-    {
-      callsign: "N4382K",
-      type: "PA28",
-      wake: "L",
-      kind: "departure",
-      status: "HOLD_SHORT",
-      x: 52.5,
-      y: 47.7,
-      heading: 210,
-      targetHeading: 210,
-      altitude: 177,
-      targetAltitude: 177,
-      speed: 0,
-      targetSpeed: 0,
-      exitFix: "MALIBU",
-      departureAltitudeAssigned: false,
-      track: [],
-    },
-    {
-      callsign: "SURF52",
-      type: "PC12",
-      wake: "M",
-      kind: "departure",
-      status: "HOLD_SHORT",
-      x: 52.8,
-      y: 47.5,
-      heading: 210,
-      targetHeading: 210,
-      altitude: 177,
-      targetAltitude: 177,
-      speed: 0,
-      targetSpeed: 0,
-      exitFix: "LAXX",
-      departureAltitudeAssigned: false,
-      track: [],
-    },
-  ],
+  aircraft: [],
   events: [
     {
       tick: 0,
@@ -178,18 +93,8 @@ const INITIAL_WORLD: World = {
     },
     {
       tick: 0,
-      tone: "pilot",
-      message: "N172SP: Entering from the northeast boundary, 4,600, full stop.",
-    },
-    {
-      tick: 0,
-      tone: "pilot",
-      message: "N4382K: Holding short Runway 21, ready for departure.",
-    },
-    {
-      tick: 0,
-      tone: "pilot",
-      message: "SURF52: Holding short Runway 21, LAXX departure.",
+      tone: "system",
+      message: "Scope clear · Traffic will build gradually as the shift begins.",
     },
   ],
 };
@@ -215,7 +120,106 @@ const EXIT_FIXES = [
 
 const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
   {
-    tick: 240,
+    tick: 48,
+    aircraft: {
+      callsign: "N4382K",
+      type: "PA28",
+      wake: "L",
+      kind: "departure",
+      status: "HOLD_SHORT",
+      x: 52.5,
+      y: 47.7,
+      heading: 210,
+      targetHeading: 210,
+      altitude: 177,
+      targetAltitude: 177,
+      speed: 0,
+      targetSpeed: 0,
+      exitFix: "MALIBU",
+      departureAltitudeAssigned: false,
+      track: [],
+    },
+  },
+  {
+    tick: 160,
+    aircraft: {
+      callsign: "N172SP",
+      type: "C172",
+      wake: "L",
+      kind: "arrival",
+      status: "INBOUND",
+      x: 99.2,
+      y: 9,
+      heading: 246,
+      targetHeading: 246,
+      altitude: 4600,
+      targetAltitude: 4600,
+      speed: 115,
+      targetSpeed: 115,
+      track: [],
+    },
+  },
+  {
+    tick: 288,
+    aircraft: {
+      callsign: "JSX422",
+      type: "E145",
+      wake: "M",
+      kind: "arrival",
+      status: "INBOUND",
+      x: 99.4,
+      y: 76,
+      heading: 304,
+      targetHeading: 304,
+      altitude: 6200,
+      targetAltitude: 6200,
+      speed: 190,
+      targetSpeed: 190,
+      track: [],
+    },
+  },
+  {
+    tick: 416,
+    aircraft: {
+      callsign: "SURF52",
+      type: "PC12",
+      wake: "M",
+      kind: "departure",
+      status: "HOLD_SHORT",
+      x: 52.8,
+      y: 47.5,
+      heading: 210,
+      targetHeading: 210,
+      altitude: 177,
+      targetAltitude: 177,
+      speed: 0,
+      targetSpeed: 0,
+      exitFix: "LAXX",
+      departureAltitudeAssigned: false,
+      track: [],
+    },
+  },
+  {
+    tick: 532,
+    aircraft: {
+      callsign: "N91GX",
+      type: "C25A",
+      wake: "M",
+      kind: "arrival",
+      status: "INBOUND",
+      x: 17,
+      y: 0.6,
+      heading: 154,
+      targetHeading: 154,
+      altitude: 7200,
+      targetAltitude: 7200,
+      speed: 220,
+      targetSpeed: 220,
+      track: [],
+    },
+  },
+  {
+    tick: 640,
     aircraft: {
       callsign: "UAL918",
       type: "B738",
@@ -234,7 +238,7 @@ const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
     },
   },
   {
-    tick: 480,
+    tick: 740,
     aircraft: {
       callsign: "N225SM",
       type: "C172",
@@ -255,7 +259,7 @@ const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
     },
   },
   {
-    tick: 720,
+    tick: 832,
     aircraft: {
       callsign: "SKW603",
       type: "E175",
@@ -978,7 +982,7 @@ function flightCardRoute(flight: Aircraft) {
 
 export function RadarSimulator() {
   const [world, setWorld] = useState<World>(INITIAL_WORLD);
-  const [selected, setSelected] = useState<string | null>("N172SP");
+  const [selected, setSelected] = useState<string | null>(null);
   const [command, setCommand] = useState("");
   const [paused, setPaused] = useState(false);
   const [queuedCommands, setQueuedCommands] = useState<
@@ -1176,7 +1180,7 @@ export function RadarSimulator() {
 
   const reset = () => {
     setWorld(INITIAL_WORLD);
-    setSelected("N172SP");
+    setSelected(null);
     setCommand("");
     setQueuedCommands([]);
     setShowStats(false);

@@ -32,8 +32,9 @@ test("server-renders the Pacific Radar simulator", async () => {
   assert.match(html, /<title>Pacific Radar — Santa Monica Tower<\/title>/i);
   assert.match(html, /SMO TOWER · 35 NM TERMINAL SCOPE/);
   assert.match(html, /Active control/);
-  assert.match(html, /N172SP/);
-  assert.match(html, /RWY 21 · HOLD SHORT · TO MALIBU/);
+  assert.match(html, /0(?:<!-- -->)? active/);
+  assert.match(html, /Scope clear · Traffic will build gradually/);
+  assert.doesNotMatch(html, /RWY 21 · HOLD SHORT · TO MALIBU/);
   assert.match(html, /track-layer/);
   assert.doesNotMatch(html, /codex-preview|starter loading skeleton/i);
 });
@@ -86,6 +87,10 @@ test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async 
   );
 
   assert.match(simulator, /const SPAWN_SCHEDULE/);
+  assert.match(simulator, /aircraft:\s*\[\]/);
+  assert.match(simulator, /tick:\s*48/);
+  assert.match(simulator, /tick:\s*160/);
+  assert.match(simulator, /tick:\s*832/);
   assert.match(simulator, /x:\s*0\.6/);
   assert.match(simulator, /status:\s*"HOLD_SHORT"/);
   assert.match(simulator, /flight\.status !== "HOLD_SHORT"/);
