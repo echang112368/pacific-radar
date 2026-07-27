@@ -5,6 +5,9 @@ from math import cos, hypot, radians, sin
 
 from .model import Aircraft, AircraftState, FlightKind, Runway, SimulationEvent
 
+AIRBORNE_SPEED_CHANGE_KT_PER_SECOND = 2
+TAKEOFF_ACCELERATION_KT_PER_SECOND = 5
+
 
 @dataclass(slots=True)
 class Simulation:
@@ -349,7 +352,12 @@ class Simulation:
         aircraft.speed_kt = self._move(
             aircraft.speed_kt,
             aircraft.target_speed_kt or aircraft.speed_kt,
-            amount=5 * self.tick_seconds,
+            amount=(
+                TAKEOFF_ACCELERATION_KT_PER_SECOND
+                if aircraft.state is AircraftState.TAKEOFF_ROLL
+                else AIRBORNE_SPEED_CHANGE_KT_PER_SECOND
+            )
+            * self.tick_seconds,
         )
 
         distance_nm = aircraft.speed_kt / 3600 * self.tick_seconds

@@ -82,20 +82,35 @@ test("uses timestamped ground-track history with a fading fixed-time trail", asy
   assert.match(css, /vector-effect:\s*non-scaling-stroke/);
 });
 
-test("calibrates knot speed to faster movement across the satellite background", async () => {
+test("maps displayed ground speed linearly to real-time screen movement", async () => {
   const simulator = await readFile(
     new URL("../app/simulator.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(simulator, /BACKGROUND_MOVEMENT_SCALE = 1\.35/);
-  assert.match(simulator, /function groundTravelForKnots/);
-  assert.match(simulator, /groundTravelForKnots\(next\.speed\)/);
+  assert.match(simulator, /SCOPE_NM_PER_WORLD_UNIT = 0\.35/);
   assert.match(
     simulator,
-    /groundTravelForKnots\(Math\.max\(next\.speed, 80\)\)/,
+    /elapsedHoursPerTick = 1 \/ SIMULATION_TICKS_PER_SECOND \/ 3600/,
+  );
+  assert.match(
+    simulator,
+    /nauticalMilesPerTick = speedKnots \* elapsedHoursPerTick/,
+  );
+  assert.match(simulator, /AIRBORNE_SPEED_CHANGE_PER_TICK = 0\.5/);
+  assert.match(simulator, /function groundTravelForKnots/);
+  assert.match(simulator, /groundTravelForKnots\(next\.speed\)/);
+  assert.match(simulator, /groundSpeed = \(distanceNm \* 3600\) \/ elapsedSeconds/);
+  assert.match(
+    simulator,
+    /Math\.round\(currentGroundMotion\(flight\)\.groundSpeed\)\}KT/,
   );
   assert.match(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE/);
+  assert.doesNotMatch(simulator, /BACKGROUND_MOVEMENT_SCALE/);
+  assert.doesNotMatch(
+    simulator,
+    /groundTravelForKnots\(Math\.max\(next\.speed/,
+  );
   assert.doesNotMatch(simulator, /next\.speed \/ 5000/);
   assert.doesNotMatch(simulator, /Math\.max\(next\.speed, 8\) \/ 4800/);
 });

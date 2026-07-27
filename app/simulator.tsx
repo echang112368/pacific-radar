@@ -108,8 +108,8 @@ const TRACK_SAMPLE_TICKS =
 const TRACK_HISTORY_TICKS =
   SIMULATION_TICKS_PER_SECOND * TRACK_HISTORY_SECONDS;
 const SCOPE_NM_PER_WORLD_UNIT = 0.35;
-const BACKGROUND_MOVEMENT_SCALE = 1.35;
 const TAKEOFF_ROLL_MOVEMENT_SCALE = 3.5;
+const AIRBORNE_SPEED_CHANGE_PER_TICK = 0.5;
 const LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND;
 const TAKEOFF_POWER_TICKS = SIMULATION_TICKS_PER_SECOND;
 const TAKEOFF_ACCELERATION_PER_TICK = 1.8;
@@ -354,13 +354,9 @@ function moveToward(current: number, target: number, amount: number) {
 }
 
 function groundTravelForKnots(speedKnots: number, phaseScale = 1) {
-  const nauticalMilesPerTick =
-    speedKnots / 3600 / SIMULATION_TICKS_PER_SECOND;
-  return (
-    (nauticalMilesPerTick / SCOPE_NM_PER_WORLD_UNIT) *
-    BACKGROUND_MOVEMENT_SCALE *
-    phaseScale
-  );
+  const elapsedHoursPerTick = 1 / SIMULATION_TICKS_PER_SECOND / 3600;
+  const nauticalMilesPerTick = speedKnots * elapsedHoursPerTick;
+  return (nauticalMilesPerTick / SCOPE_NM_PER_WORLD_UNIT) * phaseScale;
 }
 
 function appendEvent(world: World, tone: EventItem["tone"], message: string) {
@@ -419,10 +415,7 @@ function groundMotionBetween(
     (to.tick - from.tick) / SIMULATION_TICKS_PER_SECOND,
     1 / SIMULATION_TICKS_PER_SECOND,
   );
-  const groundSpeed =
-    (distanceNm * 3600) /
-    elapsedSeconds /
-    BACKGROUND_MOVEMENT_SCALE;
+  const groundSpeed = (distanceNm * 3600) / elapsedSeconds;
   const groundTrack =
     distanceNm > 0.0001
       ? ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360
@@ -482,7 +475,7 @@ function currentGroundMotion(flight: Aircraft) {
   }
   const latest = flight.track.at(-1);
   return {
-    groundSpeed: flight.groundSpeed ?? latest?.groundSpeed ?? 0,
+    groundSpeed: flight.groundSpeed ?? latest?.groundSpeed ?? flight.speed,
     groundTrack: flight.groundTrack ?? latest?.groundTrack ?? 0,
   };
 }
@@ -538,7 +531,11 @@ function stepWorld(previous: World): World {
         next.targetAltitude,
         next.expedite ? 32 : 16,
       );
-      next.speed = moveToward(next.speed, next.targetSpeed, 1.5);
+      next.speed = moveToward(
+        next.speed,
+        next.targetSpeed,
+        AIRBORNE_SPEED_CHANGE_PER_TICK,
+      );
       if (Math.abs(next.altitude - next.targetAltitude) < 1) {
         next.expedite = false;
       }
@@ -606,7 +603,7 @@ function stepWorld(previous: World): World {
       const dx = runway.threshold.x - next.x;
       const dy = runway.threshold.y - next.y;
       const dist = Math.hypot(dx, dy);
-      const travel = groundTravelForKnots(Math.max(next.speed, 80));
+      const travel = groundTravelForKnots(next.speed);
       next.x += (dx / Math.max(dist, 0.01)) * travel;
       next.y += (dy / Math.max(dist, 0.01)) * travel;
       next.targetHeading = runway.heading;
@@ -656,7 +653,7 @@ function stepWorld(previous: World): World {
         TAKEOFF_ACCELERATION_PER_TICK,
       );
       const travel = groundTravelForKnots(
-        Math.max(next.speed, 8),
+        next.speed,
         TAKEOFF_ROLL_MOVEMENT_SCALE,
       );
       if (dist <= travel) {
@@ -1898,7 +1895,7 @@ export function RadarSimulator() {
                       {flight.type} · WTC {flight.wake} · HDG{" "}
                       {String(Math.round(clearedHeading(flight))).padStart(3, "0")}
                       ° ·{" "}
-                      {Math.round(flight.speed)}KT
+                      {Math.round(currentGroundMotion(flight).groundSpeed)}KT
                     </small>
                   </span>
                   <span className="strip-data">

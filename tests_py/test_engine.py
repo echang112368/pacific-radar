@@ -142,6 +142,34 @@ class SimulationTests(unittest.TestCase):
         simulation.step(30)
         self.assertEqual(simulation.aircraft["N4382K"].altitude_ft, 177)
 
+    def test_ground_distance_is_linear_with_displayed_speed(self) -> None:
+        slow = make_simulation()
+        fast = make_simulation()
+        slow.aircraft.pop("N4382K")
+        fast.aircraft.pop("N4382K")
+        for simulation, speed in ((slow, 100), (fast, 200)):
+            arrival = simulation.aircraft["N172SP"]
+            arrival.x_nm = 0
+            arrival.y_nm = 0
+            arrival.heading_deg = 90
+            arrival.target_heading_deg = 90
+            arrival.speed_kt = speed
+            arrival.target_speed_kt = speed
+        slow.step(60)
+        fast.step(60)
+        slow_distance = slow.aircraft["N172SP"].x_nm
+        fast_distance = fast.aircraft["N172SP"].x_nm
+        self.assertAlmostEqual(fast_distance, slow_distance * 2, places=6)
+
+    def test_airborne_speed_changes_at_realistic_rate(self) -> None:
+        simulation = make_simulation()
+        arrival = simulation.aircraft["N172SP"]
+        arrival.speed_kt = 100
+        arrival.target_speed_kt = 100
+        simulation.issue("N172SP", "S 120")
+        simulation.step()
+        self.assertEqual(arrival.speed_kt, 102)
+
     def test_replay_is_deterministic(self) -> None:
         first = make_simulation()
         second = make_simulation()
