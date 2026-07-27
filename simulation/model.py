@@ -16,7 +16,9 @@ class AircraftState(StrEnum):
     GO_AROUND = "go_around"
     HOLDING = "holding"
     HOLD_SHORT = "hold_short"
+    LINING_UP = "lining_up"
     LINE_UP = "line_up"
+    TAKEOFF_READY = "takeoff_ready"
     TAKEOFF_ROLL = "takeoff_roll"
     DEPARTURE = "departure"
     LANDED = "landed"
@@ -59,6 +61,8 @@ class Aircraft:
     approach_cleared: bool = False
     departure_altitude_assigned: bool = False
     assigned_runway: str | None = None
+    ground_sequence_seconds: float = 0
+    takeoff_after_lineup: bool = False
     requested_fix: str | None = None
     expedite: bool = False
 

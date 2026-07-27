@@ -16,7 +16,9 @@ class Simulation:
 
     def runway_occupant(self) -> Aircraft | None:
         occupied_states = {
+            AircraftState.LINING_UP,
             AircraftState.LINE_UP,
+            AircraftState.TAKEOFF_READY,
             AircraftState.TAKEOFF_ROLL,
             AircraftState.LANDED,
         }
@@ -134,11 +136,15 @@ class Simulation:
                         reason="runway not available",
                         occupant=(occupant or final).callsign,
                     )
-                aircraft.state = AircraftState.LINE_UP
+                aircraft.state = AircraftState.LINING_UP
                 assigned_runway = aircraft.assigned_runway or self.runway.name
                 aircraft.assigned_runway = assigned_runway
                 aircraft.heading_deg = self.runway.heading_for(assigned_runway)
                 aircraft.target_heading_deg = aircraft.heading_deg
+                aircraft.speed_kt = 0
+                aircraft.target_speed_kt = 0
+                aircraft.ground_sequence_seconds = 1
+                aircraft.takeoff_after_lineup = False
                 clearances.append("line_up_and_wait")
                 cursor += 1
                 continue
@@ -146,6 +152,7 @@ class Simulation:
             if action in {"T", "TO"}:
                 if aircraft.state not in {
                     AircraftState.HOLD_SHORT,
+                    AircraftState.LINING_UP,
                     AircraftState.LINE_UP,
                 }:
                     return self._event(
@@ -165,6 +172,8 @@ class Simulation:
                         and candidate.state
                         in {
                             AircraftState.LINE_UP,
+                            AircraftState.LINING_UP,
+                            AircraftState.TAKEOFF_READY,
                             AircraftState.TAKEOFF_ROLL,
                             AircraftState.LANDED,
                         }
@@ -186,12 +195,19 @@ class Simulation:
                         reason="runway not available",
                         occupant=(occupant or final).callsign,
                     )
-                aircraft.state = AircraftState.TAKEOFF_ROLL
                 assigned_runway = aircraft.assigned_runway or self.runway.name
                 aircraft.assigned_runway = assigned_runway
                 aircraft.heading_deg = self.runway.heading_for(assigned_runway)
                 aircraft.target_heading_deg = aircraft.heading_deg
-                aircraft.target_speed_kt = 80
+                aircraft.speed_kt = 0
+                aircraft.target_speed_kt = 0
+                if aircraft.state is AircraftState.LINE_UP:
+                    aircraft.state = AircraftState.TAKEOFF_READY
+                    aircraft.ground_sequence_seconds = 1
+                elif aircraft.state is AircraftState.HOLD_SHORT:
+                    aircraft.state = AircraftState.LINING_UP
+                    aircraft.ground_sequence_seconds = 1
+                aircraft.takeoff_after_lineup = True
                 clearances.append("takeoff")
                 cursor += 1
                 continue
@@ -199,7 +215,9 @@ class Simulation:
             if action in {"H", "HOLD"} and cursor + 1 < len(tokens):
                 if aircraft.state in {
                     AircraftState.HOLD_SHORT,
+                    AircraftState.LINING_UP,
                     AircraftState.LINE_UP,
+                    AircraftState.TAKEOFF_READY,
                     AircraftState.TAKEOFF_ROLL,
                 }:
                     return self._event(
@@ -227,11 +245,19 @@ class Simulation:
                     continue
                 if (
                     aircraft.kind is FlightKind.DEPARTURE
-                    and aircraft.state is AircraftState.TAKEOFF_ROLL
+                    and aircraft.state
+                    in {
+                        AircraftState.LINING_UP,
+                        AircraftState.LINE_UP,
+                        AircraftState.TAKEOFF_READY,
+                        AircraftState.TAKEOFF_ROLL,
+                    }
                 ):
                     aircraft.state = AircraftState.HOLD_SHORT
                     aircraft.speed_kt = 0
                     aircraft.target_speed_kt = 0
+                    aircraft.ground_sequence_seconds = 0
+                    aircraft.takeoff_after_lineup = False
                     clearances.append("abort_takeoff")
                     cursor += 1
                     continue
@@ -273,6 +299,30 @@ class Simulation:
         )
 
     def _step_aircraft(self, aircraft: Aircraft) -> None:
+        if aircraft.state is AircraftState.LINING_UP:
+            aircraft.ground_sequence_seconds = max(
+                0, aircraft.ground_sequence_seconds - self.tick_seconds
+            )
+            aircraft.speed_kt = 8
+            if aircraft.ground_sequence_seconds == 0:
+                aircraft.speed_kt = 0
+                if aircraft.takeoff_after_lineup:
+                    aircraft.state = AircraftState.TAKEOFF_READY
+                    aircraft.ground_sequence_seconds = 1
+                else:
+                    aircraft.state = AircraftState.LINE_UP
+            return
+
+        if aircraft.state is AircraftState.TAKEOFF_READY:
+            aircraft.ground_sequence_seconds = max(
+                0, aircraft.ground_sequence_seconds - self.tick_seconds
+            )
+            aircraft.speed_kt = 0
+            if aircraft.ground_sequence_seconds == 0:
+                aircraft.state = AircraftState.TAKEOFF_ROLL
+                aircraft.target_speed_kt = 80
+            return
+
         if aircraft.state in {
             AircraftState.HOLD_SHORT,
             AircraftState.LINE_UP,
@@ -318,7 +368,9 @@ class Simulation:
             if aircraft.state
             not in {
                 AircraftState.HOLD_SHORT,
+                AircraftState.LINING_UP,
                 AircraftState.LINE_UP,
+                AircraftState.TAKEOFF_READY,
                 AircraftState.TAKEOFF_ROLL,
                 AircraftState.LANDED,
                 AircraftState.HANDOFF,

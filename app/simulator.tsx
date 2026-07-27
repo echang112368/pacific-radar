@@ -11,7 +11,9 @@ type FlightStatus =
   | "GO_AROUND"
   | "HOLDING"
   | "HOLD_SHORT"
+  | "LINING_UP"
   | "LINE_UP"
+  | "TAKEOFF_READY"
   | "TAKEOFF_ROLL"
   | "DEPARTURE"
   | "LANDED"
@@ -48,6 +50,8 @@ type Aircraft = {
   departureAltitudeAssigned?: boolean;
   departureHeading?: number;
   departureTurnDirection?: "L" | "R";
+  groundSequenceTicks?: number;
+  takeoffAfterLineup?: boolean;
   turnDirection?: "L" | "R";
   expedite?: boolean;
   holdFix?: string;
@@ -106,6 +110,9 @@ const TRACK_HISTORY_TICKS =
 const SCOPE_NM_PER_WORLD_UNIT = 0.35;
 const BACKGROUND_MOVEMENT_SCALE = 1.35;
 const TAKEOFF_ROLL_MOVEMENT_SCALE = 3.5;
+const LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND;
+const TAKEOFF_POWER_TICKS = SIMULATION_TICKS_PER_SECOND;
+const TAKEOFF_ACCELERATION_PER_TICK = 1.8;
 
 const INITIAL_WORLD: World = {
   tick: 0,
@@ -491,9 +498,13 @@ function stepWorld(previous: World): World {
       y: flight.y,
       tick: previous.tick,
     };
-    const onGround = ["HOLD_SHORT", "LINE_UP", "TAKEOFF_ROLL"].includes(
-      next.status,
-    );
+    const onGround = [
+      "HOLD_SHORT",
+      "LINING_UP",
+      "LINE_UP",
+      "TAKEOFF_READY",
+      "TAKEOFF_ROLL",
+    ].includes(next.status);
 
     if (next.status === "HOLDING" && next.holdFix) {
       const holdFix = findNavFix(next.holdFix);
@@ -543,6 +554,53 @@ function stepWorld(previous: World): World {
       next.y -= Math.cos(radians) * travel;
     }
 
+    if (next.status === "LINING_UP") {
+      const runway = runwayEndFor(next);
+      const dx = runway.threshold.x - next.x;
+      const dy = runway.threshold.y - next.y;
+      const stepsRemaining = Math.max(
+        next.groundSequenceTicks ?? LINE_UP_TICKS,
+        1,
+      );
+      next.x += dx / stepsRemaining;
+      next.y += dy / stepsRemaining;
+      next.heading = runway.heading;
+      next.targetHeading = runway.heading;
+      next.speed = 8;
+      next.targetSpeed = 0;
+      next.groundSequenceTicks = stepsRemaining - 1;
+
+      if (next.groundSequenceTicks <= 0) {
+        next.x = runway.threshold.x;
+        next.y = runway.threshold.y;
+        next.speed = 0;
+        if (next.takeoffAfterLineup) {
+          next.status = "TAKEOFF_READY";
+          next.groundSequenceTicks = TAKEOFF_POWER_TICKS;
+        } else {
+          next.status = "LINE_UP";
+          next.groundSequenceTicks = undefined;
+        }
+      }
+    }
+
+    if (
+      flight.status === "TAKEOFF_READY" &&
+      next.status === "TAKEOFF_READY"
+    ) {
+      next.speed = 0;
+      next.targetSpeed = 0;
+      next.groundSequenceTicks = Math.max(
+        (next.groundSequenceTicks ?? TAKEOFF_POWER_TICKS) - 1,
+        0,
+      );
+      if (next.groundSequenceTicks <= 0) {
+        next.status = "TAKEOFF_ROLL";
+        next.targetSpeed = 78;
+        next.groundSequenceTicks = undefined;
+      }
+    }
+
     if (next.status === "APPROACH" || next.status === "FINAL") {
       const runway = runwayEndFor(next);
       const dx = runway.threshold.x - next.x;
@@ -584,12 +642,19 @@ function stepWorld(previous: World): World {
       }
     }
 
-    if (next.status === "TAKEOFF_ROLL") {
+    if (
+      flight.status === "TAKEOFF_ROLL" &&
+      next.status === "TAKEOFF_ROLL"
+    ) {
       const runway = runwayEndFor(next);
       const dx = runway.rolloutEnd.x - next.x;
       const dy = runway.rolloutEnd.y - next.y;
       const dist = Math.hypot(dx, dy);
-      next.speed = moveToward(next.speed, 78, 2.2);
+      next.speed = moveToward(
+        next.speed,
+        78,
+        TAKEOFF_ACCELERATION_PER_TICK,
+      );
       const travel = groundTravelForKnots(
         Math.max(next.speed, 8),
         TAKEOFF_ROLL_MOVEMENT_SCALE,
@@ -668,7 +733,13 @@ function stepWorld(previous: World): World {
 
     if (
       !next.completed &&
-      !["HOLD_SHORT", "LINE_UP", "LANDED"].includes(next.status)
+      ![
+        "HOLD_SHORT",
+        "LINING_UP",
+        "LINE_UP",
+        "TAKEOFF_READY",
+        "LANDED",
+      ].includes(next.status)
     ) {
       next.track = appendGroundTrackSample(
         next,
@@ -710,9 +781,14 @@ function stepWorld(previous: World): World {
   const airborne = world.aircraft.filter(
     (flight) =>
       !flight.completed &&
-      !["HOLD_SHORT", "LINE_UP", "TAKEOFF_ROLL", "LANDED"].includes(
-        flight.status,
-      ),
+      ![
+        "HOLD_SHORT",
+        "LINING_UP",
+        "LINE_UP",
+        "TAKEOFF_READY",
+        "TAKEOFF_ROLL",
+        "LANDED",
+      ].includes(flight.status),
   );
 
   for (let i = 0; i < airborne.length; i += 1) {
@@ -797,7 +873,9 @@ function executeCommand(
   };
   const departureOnGround = () =>
     flight.kind === "departure" &&
-    ["HOLD_SHORT", "LINE_UP"].includes(flight.status);
+    ["HOLD_SHORT", "LINING_UP", "LINE_UP", "TAKEOFF_READY"].includes(
+      flight.status,
+    );
 
   while (cursor < tokens.length) {
     const action = tokens[cursor];
@@ -842,7 +920,12 @@ function executeCommand(
         const expediteToken = tokens[cursor + 2];
         flight.targetAltitude = altitude;
         flight.expedite =
-          !["HOLD_SHORT", "LINE_UP"].includes(flight.status) &&
+          ![
+            "HOLD_SHORT",
+            "LINING_UP",
+            "LINE_UP",
+            "TAKEOFF_READY",
+          ].includes(flight.status) &&
           ["X", "EX"].includes(expediteToken);
         if (flight.kind === "departure") {
           flight.departureAltitudeAssigned = true;
@@ -973,7 +1056,13 @@ function executeCommand(
         (other) =>
           other.callsign !== flight.callsign &&
           !other.completed &&
-          ["LINE_UP", "TAKEOFF_ROLL", "LANDED"].includes(other.status),
+          [
+            "LINING_UP",
+            "LINE_UP",
+            "TAKEOFF_READY",
+            "TAKEOFF_ROLL",
+            "LANDED",
+          ].includes(other.status),
       );
       if (occupant) {
         return rejectHazard(
@@ -1023,7 +1112,13 @@ function executeCommand(
         (other) =>
           other.callsign !== flight.callsign &&
           !other.completed &&
-          ["LINE_UP", "TAKEOFF_ROLL", "LANDED"].includes(other.status),
+          [
+            "LINING_UP",
+            "LINE_UP",
+            "TAKEOFF_READY",
+            "TAKEOFF_ROLL",
+            "LANDED",
+          ].includes(other.status),
       );
       const final = previous.aircraft.find(
         (other) =>
@@ -1038,13 +1133,13 @@ function executeCommand(
         );
       }
       const runway = runwayEndFor(flight);
-      flight.status = "LINE_UP";
-      flight.x = runway.threshold.x;
-      flight.y = runway.threshold.y;
+      flight.status = "LINING_UP";
       flight.heading = runway.heading;
       flight.targetHeading = runway.heading;
       flight.speed = 0;
       flight.targetSpeed = 0;
+      flight.groundSequenceTicks = LINE_UP_TICKS;
+      flight.takeoffAfterLineup = false;
       readbacks.push(`Runway ${flight.runway ?? "21"}, line up and wait`);
       cursor += 1;
       continue;
@@ -1053,7 +1148,7 @@ function executeCommand(
     if (["T", "TO"].includes(action)) {
       if (
         flight.kind !== "departure" ||
-        !["HOLD_SHORT", "LINE_UP"].includes(flight.status)
+        !["HOLD_SHORT", "LINING_UP", "LINE_UP"].includes(flight.status)
       ) {
         return reject(`${flight.callsign}: Unable takeoff from present position.`);
       }
@@ -1066,7 +1161,13 @@ function executeCommand(
         (other) =>
           other.callsign !== flight.callsign &&
           !other.completed &&
-          ["LINE_UP", "TAKEOFF_ROLL", "LANDED"].includes(other.status),
+          [
+            "LINING_UP",
+            "LINE_UP",
+            "TAKEOFF_READY",
+            "TAKEOFF_ROLL",
+            "LANDED",
+          ].includes(other.status),
       );
       const final = previous.aircraft.find(
         (other) =>
@@ -1081,13 +1182,18 @@ function executeCommand(
         );
       }
       const runway = runwayEndFor(flight);
-      flight.status = "TAKEOFF_ROLL";
-      flight.x = runway.threshold.x;
-      flight.y = runway.threshold.y;
       flight.heading = runway.heading;
       flight.targetHeading = runway.heading;
       flight.speed = 0;
-      flight.targetSpeed = 78;
+      flight.targetSpeed = 0;
+      if (flight.status === "LINE_UP") {
+        flight.status = "TAKEOFF_READY";
+        flight.groundSequenceTicks = TAKEOFF_POWER_TICKS;
+      } else if (flight.status === "HOLD_SHORT") {
+        flight.status = "LINING_UP";
+        flight.groundSequenceTicks = LINE_UP_TICKS;
+      }
+      flight.takeoffAfterLineup = true;
       readbacks.push(`Runway ${flight.runway ?? "21"}, cleared for takeoff`);
       cursor += 1;
       continue;
@@ -1096,7 +1202,16 @@ function executeCommand(
     if (["H", "HOLD"].includes(action)) {
       const fixName = tokens[cursor + 1];
       const fix = findNavFix(fixName);
-      if (!fix || ["HOLD_SHORT", "LINE_UP", "TAKEOFF_ROLL"].includes(flight.status)) {
+      if (
+        !fix ||
+        [
+          "HOLD_SHORT",
+          "LINING_UP",
+          "LINE_UP",
+          "TAKEOFF_READY",
+          "TAKEOFF_ROLL",
+        ].includes(flight.status)
+      ) {
         return reject(`${flight.callsign}: Unable hold at ${fixName ?? "unknown fix"}.`);
       }
       flight.status = "HOLDING";
@@ -1121,7 +1236,12 @@ function executeCommand(
         cursor += 1;
         continue;
       }
-      if (flight.kind === "departure" && flight.status === "TAKEOFF_ROLL") {
+      if (
+        flight.kind === "departure" &&
+        ["LINING_UP", "LINE_UP", "TAKEOFF_READY", "TAKEOFF_ROLL"].includes(
+          flight.status,
+        )
+      ) {
         const runway = runwayEndFor(flight);
         flight.status = "HOLD_SHORT";
         flight.x = runway.hold.x;
@@ -1130,6 +1250,8 @@ function executeCommand(
         flight.targetHeading = runway.heading;
         flight.speed = 0;
         flight.targetSpeed = 0;
+        flight.groundSequenceTicks = undefined;
+        flight.takeoffAfterLineup = false;
         flight.track = [];
         readbacks.push(
           `abort takeoff, hold short Runway ${flight.runway ?? "21"}`,
@@ -1181,8 +1303,14 @@ function flightCardRoute(flight: Aircraft) {
   if (flight.kind === "departure" && flight.status === "HOLD_SHORT") {
     return `RWY ${runway} · HOLD SHORT · TO ${flight.exitFix ?? "TBD"}`;
   }
+  if (flight.kind === "departure" && flight.status === "LINING_UP") {
+    return `RWY ${runway} · LINING UP · TO ${flight.exitFix ?? "TBD"}`;
+  }
   if (flight.kind === "departure" && flight.status === "LINE_UP") {
-    return `RWY ${runway} · LINE UP · TO ${flight.exitFix ?? "TBD"}`;
+    return `RWY ${runway} · LINE UP & WAIT · TO ${flight.exitFix ?? "TBD"}`;
+  }
+  if (flight.kind === "departure" && flight.status === "TAKEOFF_READY") {
+    return `RWY ${runway} · TAKEOFF POWER SET`;
   }
   const route =
     flight.kind === "arrival"
@@ -1263,9 +1391,14 @@ export function RadarSimulator() {
     const result: string[] = [];
     const airborne = radarAircraft.filter(
       (flight) =>
-        !["HOLD_SHORT", "LINE_UP", "TAKEOFF_ROLL", "LANDED"].includes(
-          flight.status,
-        ),
+        ![
+          "HOLD_SHORT",
+          "LINING_UP",
+          "LINE_UP",
+          "TAKEOFF_READY",
+          "TAKEOFF_ROLL",
+          "LANDED",
+        ].includes(flight.status),
     );
     for (let i = 0; i < airborne.length; i += 1) {
       for (let j = i + 1; j < airborne.length; j += 1) {
@@ -1842,11 +1975,11 @@ export function RadarSimulator() {
               </div>
               <div>
                 <code>N4382K W</code>
-                <span>Line up and wait; LW is identical</span>
+                <span>Enter the runway, line up, and wait; LW is identical</span>
               </div>
               <div>
                 <code>N4382K T</code>
-                <span>Clear for takeoff; W is optional</span>
+                <span>Line up if needed, set takeoff power, then begin the roll</span>
               </div>
               <div>
                 <code>N172SP H SMO</code>

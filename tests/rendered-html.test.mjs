@@ -128,6 +128,35 @@ test("aligns departures to KSMO Runway 03/21 and uses the full takeoff roll", as
   assert.doesNotMatch(runwayLabel, /\bborder\s*:|\bbackground\s*:/);
 });
 
+test("stages lineup, takeoff power, and progressive runway acceleration", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /\| "LINING_UP"/);
+  assert.match(simulator, /\| "TAKEOFF_READY"/);
+  assert.match(
+    simulator,
+    /LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND/,
+  );
+  assert.match(
+    simulator,
+    /TAKEOFF_POWER_TICKS = SIMULATION_TICKS_PER_SECOND/,
+  );
+  assert.match(simulator, /TAKEOFF_ACCELERATION_PER_TICK = 1\.8/);
+  assert.match(simulator, /flight\.status = "LINING_UP"/);
+  assert.match(simulator, /next\.status = "TAKEOFF_READY"/);
+  assert.match(simulator, /next\.status = "TAKEOFF_ROLL"/);
+  assert.match(
+    simulator,
+    /next\.speed = moveToward\(\s*next\.speed,\s*78,\s*TAKEOFF_ACCELERATION_PER_TICK/s,
+  );
+  assert.doesNotMatch(simulator, /flight\.status = "TAKEOFF_ROLL"/);
+  assert.match(simulator, /LINE UP & WAIT/);
+  assert.match(simulator, /TAKEOFF POWER SET/);
+});
+
 test("pause is a planning state with compact, boxless traffic displays", async () => {
   const [simulator, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),

@@ -65,9 +65,14 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(event.event_type, "clearance_accepted")
         self.assertIs(
             simulation.aircraft["N4382K"].state,
+            AircraftState.LINING_UP,
+        )
+        simulation.step()
+        self.assertIs(
+            simulation.aircraft["N4382K"].state,
             AircraftState.LINE_UP,
         )
-        simulation.step(10)
+        simulation.step(9)
         self.assertIs(
             simulation.aircraft["N4382K"].state,
             AircraftState.LINE_UP,
@@ -83,6 +88,23 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(event.event_type, "clearance_accepted")
         self.assertIs(
             simulation.aircraft["N4382K"].state,
+            AircraftState.LINING_UP,
+        )
+        simulation.step()
+        self.assertIs(
+            simulation.aircraft["N4382K"].state,
+            AircraftState.TAKEOFF_READY,
+        )
+        simulation.step()
+        self.assertIs(
+            simulation.aircraft["N4382K"].state,
+            AircraftState.TAKEOFF_ROLL,
+        )
+        self.assertEqual(simulation.aircraft["N4382K"].speed_kt, 0)
+        simulation.step(5)
+        self.assertEqual(simulation.aircraft["N4382K"].speed_kt, 25)
+        self.assertIs(
+            simulation.aircraft["N4382K"].state,
             AircraftState.TAKEOFF_ROLL,
         )
 
@@ -94,6 +116,8 @@ class SimulationTests(unittest.TestCase):
         event = simulation.issue("N4382K", "T")
         self.assertEqual(event.event_type, "clearance_accepted")
         self.assertEqual(departure.heading_deg, 30)
+        self.assertIs(departure.state, AircraftState.LINING_UP)
+        simulation.step(2)
         self.assertIs(departure.state, AircraftState.TAKEOFF_ROLL)
 
     def test_runway_occupancy_blocks_landing_clearance(self) -> None:
@@ -110,7 +134,7 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(event.event_type, "clearance_accepted")
         self.assertEqual(departure.target_altitude_ft, 5_000)
         self.assertEqual(departure.requested_fix, "FONTI")
-        self.assertIs(departure.state, AircraftState.TAKEOFF_ROLL)
+        self.assertIs(departure.state, AircraftState.LINING_UP)
 
     def test_ground_aircraft_does_not_climb_before_takeoff(self) -> None:
         simulation = make_simulation()
