@@ -82,6 +82,24 @@ test("uses timestamped ground-track history with a fading fixed-time trail", asy
   assert.match(css, /vector-effect:\s*non-scaling-stroke/);
 });
 
+test("calibrates knot speed to faster movement across the satellite background", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /BACKGROUND_MOVEMENT_SCALE = 1\.35/);
+  assert.match(simulator, /function groundTravelForKnots/);
+  assert.match(simulator, /groundTravelForKnots\(next\.speed\)/);
+  assert.match(
+    simulator,
+    /groundTravelForKnots\(Math\.max\(next\.speed, 80\)\)/,
+  );
+  assert.match(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE/);
+  assert.doesNotMatch(simulator, /next\.speed \/ 5000/);
+  assert.doesNotMatch(simulator, /Math\.max\(next\.speed, 8\) \/ 4800/);
+});
+
 test("pause is a planning state with compact, boxless traffic displays", async () => {
   const [simulator, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),

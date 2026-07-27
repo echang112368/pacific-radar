@@ -91,6 +91,8 @@ const TRACK_SAMPLE_TICKS =
 const TRACK_HISTORY_TICKS =
   SIMULATION_TICKS_PER_SECOND * TRACK_HISTORY_SECONDS;
 const SCOPE_NM_PER_WORLD_UNIT = 0.35;
+const BACKGROUND_MOVEMENT_SCALE = 1.35;
+const TAKEOFF_ROLL_MOVEMENT_SCALE = 1.05;
 
 const INITIAL_WORLD: World = {
   tick: 0,
@@ -334,6 +336,16 @@ function moveToward(current: number, target: number, amount: number) {
   return current + Math.sign(target - current) * amount;
 }
 
+function groundTravelForKnots(speedKnots: number, phaseScale = 1) {
+  const nauticalMilesPerTick =
+    speedKnots / 3600 / SIMULATION_TICKS_PER_SECOND;
+  return (
+    (nauticalMilesPerTick / SCOPE_NM_PER_WORLD_UNIT) *
+    BACKGROUND_MOVEMENT_SCALE *
+    phaseScale
+  );
+}
+
 function appendEvent(world: World, tone: EventItem["tone"], message: string) {
   return {
     ...world,
@@ -377,7 +389,10 @@ function groundMotionBetween(
     (to.tick - from.tick) / SIMULATION_TICKS_PER_SECOND,
     1 / SIMULATION_TICKS_PER_SECOND,
   );
-  const groundSpeed = (distanceNm * 3600) / elapsedSeconds;
+  const groundSpeed =
+    (distanceNm * 3600) /
+    elapsedSeconds /
+    BACKGROUND_MOVEMENT_SCALE;
   const groundTrack =
     distanceNm > 0.0001
       ? ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360
@@ -493,7 +508,7 @@ function stepWorld(previous: World): World {
       next.speed > 0
     ) {
       const radians = (next.heading * Math.PI) / 180;
-      const travel = next.speed / 5000;
+      const travel = groundTravelForKnots(next.speed);
       next.x += Math.sin(radians) * travel;
       next.y -= Math.cos(radians) * travel;
     }
@@ -502,7 +517,7 @@ function stepWorld(previous: World): World {
       const dx = RUNWAY.threshold.x - next.x;
       const dy = RUNWAY.threshold.y - next.y;
       const dist = Math.hypot(dx, dy);
-      const travel = Math.max(next.speed, 80) / 5000;
+      const travel = groundTravelForKnots(Math.max(next.speed, 80));
       next.x += (dx / Math.max(dist, 0.01)) * travel;
       next.y += (dy / Math.max(dist, 0.01)) * travel;
       next.targetHeading = RUNWAY.heading;
@@ -543,7 +558,10 @@ function stepWorld(previous: World): World {
       const dy = RUNWAY.rollout.y - next.y;
       const dist = Math.hypot(dx, dy);
       next.speed = moveToward(next.speed, 78, 2.2);
-      const travel = Math.max(next.speed, 8) / 4800;
+      const travel = groundTravelForKnots(
+        Math.max(next.speed, 8),
+        TAKEOFF_ROLL_MOVEMENT_SCALE,
+      );
       next.x += (dx / Math.max(dist, 0.01)) * travel;
       next.y += (dy / Math.max(dist, 0.01)) * travel;
       if (next.speed >= 72 || dist < 2) {
