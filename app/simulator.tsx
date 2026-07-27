@@ -1401,65 +1401,64 @@ export function RadarSimulator() {
               )}
             </div>
 
-            <div className="command-deck">
-              <div className="selection-summary">
-                <span>SELECTED</span>
-                <strong>{selectedFlight?.callsign ?? "NONE"}</strong>
-                {selectedFlight && (
-                  <small>
-                    {selectedFlight.type} · {statusLabel(selectedFlight.status)}
-                  </small>
-                )}
-              </div>
-              <form className="command-form" onSubmit={transmit}>
-                <label htmlFor="command">
-                  <span>Clearance</span>
-                  <em>{latestMessage}</em>
-                </label>
-                <div className="command-input-wrap">
-                  <span className="prompt-symbol">›</span>
-                  <input
-                    ref={inputRef}
-                    id="command"
-                    value={command}
-                    onChange={(event) => setCommand(event.target.value)}
-                    placeholder={
-                      activeSelection
-                        ? `${activeSelection} C 210 · press Enter`
-                        : "Select an aircraft or type SCALE / STATS"
-                    }
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                  <button type="submit">Transmit</button>
-                </div>
-              </form>
-              <div className="quick-commands" aria-label="Quick commands">
-                {selectedFlight?.kind === "departure" &&
-                  selectedFlight.exitFix && (
-                    <button
-                      onClick={() =>
-                        runQuickCommand(`C ${selectedFlight.exitFix}`)
-                      }
-                    >
-                      Direct {selectedFlight.exitFix}
-                    </button>
-                  )}
-                {QUICK_COMMANDS.map((item) => (
-                  <button
-                    key={item.command}
-                    onClick={() => runQuickCommand(item.command)}
-                    disabled={!activeSelection}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 
         <aside className="side-panel">
+          <section className="command-deck" aria-label="Clearance console">
+            <div className="selection-summary">
+              <span>SELECTED</span>
+              <strong>{selectedFlight?.callsign ?? "NONE"}</strong>
+              {selectedFlight && (
+                <small>
+                  {selectedFlight.type} · {statusLabel(selectedFlight.status)}
+                </small>
+              )}
+            </div>
+            <form className="command-form" onSubmit={transmit}>
+              <label htmlFor="command">
+                <span>Clearance</span>
+                <em>{latestMessage}</em>
+              </label>
+              <div className="command-input-wrap">
+                <span className="prompt-symbol">›</span>
+                <input
+                  ref={inputRef}
+                  id="command"
+                  value={command}
+                  onChange={(event) => setCommand(event.target.value)}
+                  placeholder={
+                    activeSelection
+                      ? `${activeSelection} C 210 · press Enter`
+                      : "Select aircraft or enter a command"
+                  }
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <button type="submit">Send</button>
+              </div>
+            </form>
+            <div className="quick-commands" aria-label="Quick commands">
+              {selectedFlight?.kind === "departure" &&
+                selectedFlight.exitFix && (
+                  <button
+                    onClick={() => runQuickCommand(`C ${selectedFlight.exitFix}`)}
+                  >
+                    Direct {selectedFlight.exitFix}
+                  </button>
+                )}
+              {QUICK_COMMANDS.map((item) => (
+                <button
+                  key={item.command}
+                  onClick={() => runQuickCommand(item.command)}
+                  disabled={!activeSelection}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
           <section className="score-card">
             <div>
               <span>SHIFT SCORE</span>

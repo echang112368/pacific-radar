@@ -49,12 +49,12 @@ button {
 }
 
 .top-bar {
-  min-height: 76px;
+  min-height: 54px;
   display: grid;
-  grid-template-columns: minmax(280px, 0.8fr) minmax(560px, 1.5fr) auto;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(480px, 1.6fr) auto;
   align-items: center;
-  gap: 24px;
-  padding: 12px 18px;
+  gap: 12px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--line);
   background: rgba(8, 19, 16, 0.98);
 }
@@ -67,28 +67,28 @@ button {
 }
 
 .brand-block {
-  gap: 12px;
+  gap: 8px;
 }
 
 .brand-mark {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   border: 1px solid rgba(96, 242, 189, 0.48);
   background: linear-gradient(145deg, rgba(96, 242, 189, 0.16), transparent);
   color: var(--mint-strong);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.08em;
 }
 
 .eyebrow {
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   color: var(--mint-strong);
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.16em;
 }
@@ -101,7 +101,7 @@ p {
 
 h1 {
   margin-bottom: 0;
-  font-size: 19px;
+  font-size: 15px;
   font-weight: 620;
   letter-spacing: -0.025em;
 }
@@ -122,7 +122,7 @@ h2 {
 .status-ribbon > div {
   flex: 1;
   min-width: 0;
-  padding: 8px 12px;
+  padding: 5px 9px;
   border-right: 1px solid var(--soft-line);
 }
 
@@ -137,17 +137,17 @@ h2 {
   display: block;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 8px;
+  font-size: 7px;
   letter-spacing: 0.12em;
 }
 
 .status-ribbon strong {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   overflow: hidden;
   color: #d8eee5;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -155,18 +155,18 @@ h2 {
 
 .header-actions {
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .ghost-button,
 .primary-button {
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 32px;
+  padding: 0 10px;
   border: 1px solid var(--line);
   background: transparent;
   color: #c9ddd5;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 650;
   transition:
     border-color 150ms ease,
@@ -187,18 +187,18 @@ h2 {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 344px;
-  min-height: calc(100vh - 76px);
+  grid-template-columns: minmax(0, 1fr) 330px;
+  min-height: calc(100vh - 54px);
 }
 
 .radar-column {
   min-width: 0;
-  padding: 14px 0 14px 14px;
+  padding: 8px 0 8px 8px;
 }
 
 .radar-frame {
-  height: calc(100vh - 104px);
-  min-height: 650px;
+  height: calc(100vh - 70px);
+  min-height: 600px;
   overflow: hidden;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -207,8 +207,8 @@ h2 {
 
 .radar-map {
   position: relative;
-  height: calc(100% - 174px);
-  min-height: 480px;
+  height: 100%;
+  min-height: 600px;
   overflow: hidden;
   isolation: isolate;
   background: #0a2425;
@@ -693,52 +693,55 @@ h2 {
 }
 
 .command-deck {
-  height: 174px;
-  display: grid;
-  grid-template-columns: 150px minmax(240px, 1fr);
-  grid-template-rows: 96px 78px;
-  border-top: 1px solid var(--line);
+  display: block;
+  border-bottom: 1px solid var(--line);
   background:
     linear-gradient(90deg, rgba(96, 242, 189, 0.025), transparent 40%),
     #0b1a17;
 }
 
 .selection-summary {
-  grid-row: 1 / 3;
-  padding: 20px 18px;
-  border-right: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 9px 11px 7px;
+  border-bottom: 1px solid var(--soft-line);
 }
 
 .selection-summary strong {
   display: block;
-  margin-top: 8px;
+  margin-top: 2px;
   color: var(--mint);
   font-family: var(--mono);
-  font-size: 17px;
+  font-size: 14px;
 }
 
 .selection-summary small {
   display: block;
-  margin-top: 6px;
+  grid-column: 2;
+  grid-row: 1 / 3;
+  margin-top: 0;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 8px;
-  line-height: 1.5;
+  font-size: 7px;
+  line-height: 1.35;
+  text-align: right;
 }
 
 .command-form {
-  padding: 14px 18px 8px;
+  padding: 9px 11px 6px;
 }
 
 .command-form label {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 7px;
+  gap: 7px;
+  margin-bottom: 5px;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -748,7 +751,7 @@ h2 {
   min-width: 0;
   overflow: hidden;
   color: #78958a;
-  font-size: 7px;
+  font-size: 6.5px;
   font-style: normal;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -758,7 +761,7 @@ h2 {
 }
 
 .command-input-wrap {
-  height: 46px;
+  height: 38px;
   display: flex;
   align-items: center;
   border: 1px solid rgba(164, 232, 206, 0.25);
@@ -772,7 +775,7 @@ h2 {
 }
 
 .prompt-symbol {
-  padding-left: 13px;
+  padding-left: 9px;
   color: var(--mint-strong);
   font-family: var(--mono);
 }
@@ -781,13 +784,13 @@ h2 {
   min-width: 0;
   flex: 1;
   height: 100%;
-  padding: 0 12px;
+  padding: 0 8px;
   border: 0;
   outline: 0;
   background: transparent;
   color: #e1fff3;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
@@ -797,13 +800,13 @@ h2 {
 
 .command-input-wrap button {
   align-self: stretch;
-  padding: 0 18px;
+  padding: 0 10px;
   border: 0;
   border-left: 1px solid rgba(96, 242, 189, 0.26);
   background: rgba(96, 242, 189, 0.11);
   color: var(--mint-strong);
   cursor: pointer;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 700;
 }
 
@@ -813,23 +816,25 @@ h2 {
 }
 
 .quick-commands {
-  display: flex;
-  align-items: start;
-  gap: 6px;
-  padding: 3px 18px 14px;
-  overflow-x: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 2px 11px 9px;
 }
 
 .quick-commands button {
-  flex: 0 0 auto;
-  min-height: 31px;
-  padding: 0 10px;
+  min-width: 0;
+  min-height: 25px;
+  overflow: hidden;
+  padding: 0 5px;
   border: 1px solid var(--soft-line);
   background: rgba(255, 255, 255, 0.018);
   color: #a9bfb6;
   cursor: pointer;
   font-family: var(--mono);
-  font-size: 8px;
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quick-commands button:hover {
@@ -845,16 +850,16 @@ h2 {
 .side-panel {
   min-width: 0;
   display: grid;
-  grid-template-rows: auto minmax(280px, auto) minmax(180px, 1fr) auto;
-  margin: 14px;
+  grid-template-rows: auto auto minmax(220px, auto) minmax(130px, 1fr) auto;
+  margin: 8px;
   border: 1px solid var(--line);
   background: var(--panel);
 }
 
 .score-card {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  padding: 16px;
+  grid-template-columns: 94px 1fr;
+  padding: 9px 11px;
   border-bottom: 1px solid var(--line);
   background:
     linear-gradient(120deg, rgba(96, 242, 189, 0.08), transparent 60%),
@@ -866,14 +871,14 @@ h2 {
   margin-top: 5px;
   color: var(--mint-strong);
   font-family: var(--mono);
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 650;
 }
 
 .score-metrics {
   display: grid;
   gap: 4px;
-  padding-left: 14px;
+  padding-left: 10px;
   border-left: 1px solid var(--line);
 }
 
@@ -886,12 +891,12 @@ h2 {
 
 .score-metrics strong {
   color: #dcece6;
-  font-size: 11px;
+  font-size: 9px;
 }
 
 .panel-section {
   min-height: 0;
-  padding: 16px;
+  padding: 11px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -900,7 +905,7 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 13px;
+  margin-bottom: 8px;
 }
 
 .section-heading > span {
@@ -1237,38 +1242,31 @@ h2 {
 
 @media (max-width: 1180px) {
   .top-bar {
-    grid-template-columns: 1fr auto;
-  }
-
-  .status-ribbon {
-    grid-column: 1 / 3;
-    grid-row: 2;
+    grid-template-columns: minmax(200px, 0.7fr) minmax(410px, 1.4fr) auto;
   }
 
   .workspace {
-    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-columns: minmax(0, 1fr) 316px;
   }
 
   .radar-frame {
-    height: calc(100vh - 170px);
+    height: calc(100vh - 70px);
   }
 }
 
 @media (max-width: 900px) {
   .top-bar {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
   }
 
   .header-actions {
-    position: absolute;
-    right: 14px;
-    top: 14px;
+    position: static;
   }
 
   .status-ribbon {
-    grid-column: auto;
-    grid-row: auto;
+    grid-column: 1 / 3;
+    grid-row: 2;
     overflow-x: auto;
   }
 
@@ -1290,7 +1288,8 @@ h2 {
   }
 
   .radar-map {
-    height: 62vh;
+    height: 68vh;
+    min-height: 520px;
   }
 
   .side-panel {
@@ -1316,17 +1315,12 @@ h2 {
   }
 
   .radar-map {
-    height: 58vh;
+    height: 64vh;
     min-height: 430px;
   }
 
-  .command-deck {
-    height: auto;
-    display: block;
-  }
-
   .selection-summary {
-    display: none;
+    display: grid;
   }
 
   .command-form {

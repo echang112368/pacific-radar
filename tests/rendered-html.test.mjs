@@ -101,3 +101,20 @@ test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async 
   assert.match(simulator, /pacific-radar-high-scores/);
   assert.match(simulator, /setCommand\(`\$\{flight\.callsign\} `\)/);
 });
+
+test("keeps the clearance console in the sidebar and gives the radar full height", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  const sidebarIndex = simulator.indexOf('<aside className="side-panel">');
+  const commandIndex = simulator.indexOf('className="command-deck"');
+  assert.ok(sidebarIndex >= 0);
+  assert.ok(commandIndex > sidebarIndex);
+  assert.match(simulator, /aria-label="Clearance console"/);
+  assert.match(css, /\.top-bar\s*\{[^}]*min-height:\s*54px/s);
+  assert.match(css, /\.radar-map\s*\{[^}]*height:\s*100%/s);
+  assert.match(css, /\.side-panel\s*\{[^}]*grid-template-rows:\s*auto auto/s);
+  assert.doesNotMatch(css, /height:\s*calc\(100%\s*-\s*174px\)/);
+});
