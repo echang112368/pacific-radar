@@ -1640,6 +1640,27 @@ export function RadarSimulator() {
         </div>
 
         <aside className="side-panel">
+          <section className="panel-section radio-section">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">120.100</p>
+                <h2>Radio log</h2>
+              </div>
+              <span className="live-indicator">LIVE</span>
+            </div>
+            <div className="event-log" aria-live="polite">
+              {world.events.slice(-2).reverse().map((item, index) => (
+                <div className={`event-row ${item.tone}`} key={`${item.tick}-${index}`}>
+                  <span>
+                    {String(Math.floor(item.tick / 240)).padStart(2, "0")}:
+                    {String(Math.floor((item.tick % 240) / 4)).padStart(2, "0")}
+                  </span>
+                  <p title={item.message}>{item.message}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section className="command-deck" aria-label="Clearance console">
             <div className="selection-summary">
               <span>SELECTED</span>
@@ -1753,27 +1774,6 @@ export function RadarSimulator() {
                   </span>
                   <span className="strip-status">{flightCardRoute(flight)}</span>
                 </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="panel-section radio-section">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">120.100</p>
-                <h2>Radio log</h2>
-              </div>
-              <span className="live-indicator">LIVE</span>
-            </div>
-            <div className="event-log" aria-live="polite">
-              {[...world.events].reverse().map((item, index) => (
-                <div className={`event-row ${item.tone}`} key={`${item.tick}-${index}`}>
-                  <span>
-                    {String(Math.floor(item.tick / 240)).padStart(2, "0")}:
-                    {String(Math.floor((item.tick % 240) / 4)).padStart(2, "0")}
-                  </span>
-                  <p>{item.message}</p>
-                </div>
               ))}
             </div>
           </section>

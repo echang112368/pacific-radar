@@ -21,6 +21,7 @@
 
 html,
 body {
+  height: 100%;
   margin: 0;
   min-height: 100%;
   background: var(--ink);
@@ -28,7 +29,7 @@ body {
 }
 
 body {
-  overflow-x: hidden;
+  overflow: hidden;
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
@@ -42,7 +43,9 @@ button {
 }
 
 .sim-shell {
+  height: 100vh;
   min-height: 100vh;
+  overflow: hidden;
   background:
     radial-gradient(circle at 20% 0%, rgba(43, 104, 82, 0.13), transparent 35%),
     #081310;
@@ -186,9 +189,10 @@ h2 {
 }
 
 .workspace {
+  height: calc(100vh - 54px);
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;
-  min-height: calc(100vh - 54px);
+  min-height: 0;
 }
 
 .radar-column {
@@ -198,7 +202,7 @@ h2 {
 
 .radar-frame {
   height: calc(100vh - 70px);
-  min-height: 600px;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -208,7 +212,7 @@ h2 {
 .radar-map {
   position: relative;
   height: 100%;
-  min-height: 600px;
+  min-height: 0;
   overflow: hidden;
   isolation: isolate;
   background: #0a2425;
@@ -879,9 +883,12 @@ h2 {
 }
 
 .side-panel {
+  height: calc(100vh - 70px);
   min-width: 0;
+  min-height: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(220px, auto) minmax(130px, 1fr) auto;
+  grid-template-rows: 92px auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
   margin: 8px;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -949,8 +956,36 @@ h2 {
 }
 
 .strip-stack {
+  min-height: 0;
   display: grid;
+  flex: 1;
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.strips-section {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.strip-stack::-webkit-scrollbar {
+  width: 6px;
+}
+
+.strip-stack::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.strip-stack::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(145, 170, 161, 0.34);
 }
 
 .flight-strip {
@@ -1040,33 +1075,55 @@ h2 {
   display: flex;
   min-height: 0;
   flex-direction: column;
+  overflow: hidden;
+  padding: 8px 10px;
+}
+
+.radio-section .section-heading {
+  flex: 0 0 auto;
+  margin-bottom: 3px;
+}
+
+.radio-section h2 {
+  font-size: 12px;
+}
+
+.radio-section .eyebrow {
+  font-size: 6px;
+}
+
+.radio-section .section-heading > span {
+  padding: 3px 5px;
+  font-size: 6px;
 }
 
 .event-log {
   min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
+  overflow: hidden;
 }
 
 .event-row {
   display: grid;
-  grid-template-columns: 33px 1fr;
-  gap: 8px;
-  padding: 7px 0;
+  grid-template-columns: 29px minmax(0, 1fr);
+  gap: 6px;
+  padding: 4px 0;
   border-bottom: 1px solid var(--soft-line);
 }
 
 .event-row > span {
   color: #526e65;
   font-family: var(--mono);
-  font-size: 7px;
+  font-size: 6px;
 }
 
 .event-row p {
+  overflow: hidden;
   margin-bottom: 0;
   color: #b9cac4;
-  font-size: 10px;
-  line-height: 1.4;
+  font-size: 8px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .event-row.pilot p {
@@ -1286,6 +1343,20 @@ h2 {
 }
 
 @media (max-width: 900px) {
+  html,
+  body {
+    height: auto;
+  }
+
+  body {
+    overflow: auto;
+  }
+
+  .sim-shell {
+    height: auto;
+    overflow: visible;
+  }
+
   .top-bar {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 6px;
@@ -1306,6 +1377,7 @@ h2 {
   }
 
   .workspace {
+    height: auto;
     display: block;
   }
 
@@ -1324,11 +1396,22 @@ h2 {
   }
 
   .side-panel {
+    height: auto;
+    grid-template-rows: auto;
+    overflow: visible;
     margin: 0 10px 10px;
   }
 
   .radio-section {
-    min-height: 280px;
+    min-height: 92px;
+  }
+
+  .strips-section {
+    overflow: visible;
+  }
+
+  .strip-stack {
+    max-height: 52vh;
   }
 }
 

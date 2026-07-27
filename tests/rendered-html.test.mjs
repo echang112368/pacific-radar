@@ -185,6 +185,37 @@ test("keeps the clearance console in the sidebar and gives the radar full height
   assert.match(simulator, /aria-label="Clearance console"/);
   assert.match(css, /\.top-bar\s*\{[^}]*min-height:\s*54px/s);
   assert.match(css, /\.radar-map\s*\{[^}]*height:\s*100%/s);
-  assert.match(css, /\.side-panel\s*\{[^}]*grid-template-rows:\s*auto auto/s);
+  assert.match(
+    css,
+    /\.side-panel\s*\{[^}]*grid-template-rows:\s*92px auto auto minmax\(0, 1fr\) auto/s,
+  );
   assert.doesNotMatch(css, /height:\s*calc\(100%\s*-\s*174px\)/);
+});
+
+test("keeps radio messages at the top and scrolls only the active strip stack", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  const sidebarIndex = simulator.indexOf('<aside className="side-panel">');
+  const radioIndex = simulator.indexOf('className="panel-section radio-section"');
+  const commandIndex = simulator.indexOf('className="command-deck"');
+  const stripsIndex = simulator.indexOf(
+    'className="panel-section strips-section"',
+  );
+
+  assert.ok(sidebarIndex >= 0);
+  assert.ok(radioIndex > sidebarIndex);
+  assert.ok(commandIndex > radioIndex);
+  assert.ok(stripsIndex > commandIndex);
+  assert.match(simulator, /world\.events\.slice\(-2\)\.reverse\(\)/);
+  assert.match(css, /body\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(
+    css,
+    /\.side-panel\s*\{[^}]*height:\s*calc\(100vh - 70px\)[^}]*overflow:\s*hidden/s,
+  );
+  assert.match(css, /\.strips-section\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(css, /\.strip-stack\s*\{[^}]*overflow-y:\s*auto/s);
+  assert.match(css, /\.event-log\s*\{[^}]*overflow:\s*hidden/s);
 });
