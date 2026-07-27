@@ -219,3 +219,19 @@ test("keeps radio messages at the top and scrolls only the active strip stack", 
   assert.match(css, /\.strip-stack\s*\{[^}]*overflow-y:\s*auto/s);
   assert.match(css, /\.event-log\s*\{[^}]*overflow:\s*hidden/s);
 });
+
+test("uses a bare command input without selection or suggested clearances", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /aria-label="ATC command"/);
+  assert.match(simulator, /<button type="submit">Send<\/button>/);
+  assert.doesNotMatch(simulator, /className="selection-summary"/);
+  assert.doesNotMatch(simulator, /className="quick-commands"/);
+  assert.doesNotMatch(simulator, /const QUICK_COMMANDS/);
+  assert.doesNotMatch(simulator, /press Enter/);
+  assert.doesNotMatch(css, /\.selection-summary/);
+  assert.doesNotMatch(css, /\.quick-commands/);
+});

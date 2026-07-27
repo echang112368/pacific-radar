@@ -297,17 +297,6 @@ const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
   },
 ];
 
-const QUICK_COMMANDS = [
-  { label: "Heading 210", command: "C 210" },
-  { label: "Altitude 2,000", command: "C 2" },
-  { label: "Speed 100", command: "S 100" },
-  { label: "Land 21", command: "L 21" },
-  { label: "Line up & wait", command: "W" },
-  { label: "Clear takeoff", command: "T" },
-  { label: "Hold SMO", command: "H SMO" },
-  { label: "Abort", command: "A" },
-];
-
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -1323,11 +1312,6 @@ export function RadarSimulator() {
     inputRef.current?.focus();
   };
 
-  const runQuickCommand = (value: string) => {
-    dispatchCommand(value);
-    inputRef.current?.focus();
-  };
-
   const pauseSimulation = () => setPaused(true);
 
   const resumeSimulation = () => {
@@ -1364,7 +1348,6 @@ export function RadarSimulator() {
 
   const clockMinutes = Math.floor(world.tick / 240);
   const clockSeconds = Math.floor((world.tick % 240) / 4);
-  const latestMessage = world.events.at(-1)?.message ?? "Ready for clearance.";
 
   return (
     <main className="sim-shell">
@@ -1662,57 +1645,21 @@ export function RadarSimulator() {
           </section>
 
           <section className="command-deck" aria-label="Clearance console">
-            <div className="selection-summary">
-              <span>SELECTED</span>
-              <strong>{selectedFlight?.callsign ?? "NONE"}</strong>
-              {selectedFlight && (
-                <small>
-                  {selectedFlight.type} · {statusLabel(selectedFlight.status)}
-                </small>
-              )}
-            </div>
             <form className="command-form" onSubmit={transmit}>
-              <label htmlFor="command">
-                <span>Clearance</span>
-                <em>{latestMessage}</em>
-              </label>
               <div className="command-input-wrap">
                 <span className="prompt-symbol">›</span>
                 <input
                   ref={inputRef}
                   id="command"
+                  aria-label="ATC command"
                   value={command}
                   onChange={(event) => setCommand(event.target.value)}
-                  placeholder={
-                    activeSelection
-                      ? `${activeSelection} C 210 · press Enter`
-                      : "Select aircraft or enter a command"
-                  }
                   autoComplete="off"
                   spellCheck={false}
                 />
                 <button type="submit">Send</button>
               </div>
             </form>
-            <div className="quick-commands" aria-label="Quick commands">
-              {selectedFlight?.kind === "departure" &&
-                selectedFlight.exitFix && (
-                  <button
-                    onClick={() => runQuickCommand(`C ${selectedFlight.exitFix}`)}
-                  >
-                    Direct {selectedFlight.exitFix}
-                  </button>
-                )}
-              {QUICK_COMMANDS.map((item) => (
-                <button
-                  key={item.command}
-                  onClick={() => runQuickCommand(item.command)}
-                  disabled={!activeSelection}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
           </section>
 
           <section className="score-card">
