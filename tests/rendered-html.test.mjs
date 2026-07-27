@@ -140,9 +140,14 @@ test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async 
   assert.match(simulator, /\["W", "LW", "LUAW"\]/);
   assert.match(simulator, /above 3,000 feet AGL/);
   assert.match(simulator, /heading must be within 60°/);
+  assert.match(simulator, /Invalid heading \$\{clearance\}; use 000 through 359/);
+  assert.match(simulator, /!other\.completed/);
+  assert.match(simulator, /globalCommand === "HELP"/);
   assert.match(simulator, /globalCommand === "SCALE"/);
   assert.match(simulator, /globalCommand === "STATS"/);
   assert.match(simulator, /pacific-radar-high-scores/);
+  assert.match(simulator, /altitudeLabel\(flight\.targetAltitude\)/);
+  assert.match(simulator, /clearedHeading\(flight\)/);
   assert.match(simulator, /setCommand\(`\$\{flight\.callsign\} `\)/);
 });
 

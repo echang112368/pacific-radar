@@ -770,7 +770,12 @@ function executeCommand(
       }
 
       if (/^\d{3}$/.test(clearance)) {
-        const heading = Number.parseInt(clearance, 10) % 360;
+        const heading = Number.parseInt(clearance, 10);
+        if (heading > 359) {
+          return reject(
+            `${flight.callsign}: Invalid heading ${clearance}; use 000 through 359.`,
+          );
+        }
         const direction = tokens[cursor + 2];
         const forcedDirection =
           direction === "L" || direction === "R" ? direction : undefined;
@@ -838,10 +843,16 @@ function executeCommand(
 
     if (["HDG", "HEADING"].includes(action) && tokens[cursor + 1]) {
       const heading = Number.parseInt(tokens[cursor + 1], 10);
-      if (!Number.isFinite(heading)) {
-        return reject(`${flight.callsign}: Invalid heading.`);
+      if (
+        !/^\d{1,3}$/.test(tokens[cursor + 1]) ||
+        !Number.isFinite(heading) ||
+        heading > 359
+      ) {
+        return reject(
+          `${flight.callsign}: Invalid heading; use 000 through 359.`,
+        );
       }
-      const assignedHeading = heading % 360;
+      const assignedHeading = heading;
       if (departureOnGround()) {
         flight.departureHeading = assignedHeading;
       } else {
@@ -917,6 +928,7 @@ function executeCommand(
       const occupant = previous.aircraft.find(
         (other) =>
           other.callsign !== flight.callsign &&
+          !other.completed &&
           ["LINE_UP", "TAKEOFF_ROLL", "LANDED"].includes(other.status),
       );
       if (occupant) {
@@ -956,6 +968,7 @@ function executeCommand(
       const occupant = previous.aircraft.find(
         (other) =>
           other.callsign !== flight.callsign &&
+          !other.completed &&
           ["LINE_UP", "TAKEOFF_ROLL", "LANDED"].includes(other.status),
       );
       const final = previous.aircraft.find(
@@ -993,6 +1006,7 @@ function executeCommand(
       const occupant = previous.aircraft.find(
         (other) =>
           other.callsign !== flight.callsign &&
+          !other.completed &&
           ["LINE_UP", "TAKEOFF_ROLL", "LANDED"].includes(other.status),
       );
       const final = previous.aircraft.find(
@@ -1089,6 +1103,10 @@ function statusLabel(status: FlightStatus) {
 
 function altitudeLabel(altitude: number) {
   return String(Math.round(altitude / 100)).padStart(3, "0");
+}
+
+function clearedHeading(flight: Aircraft) {
+  return flight.departureHeading ?? flight.targetHeading;
 }
 
 function flightCardRoute(flight: Aircraft) {
@@ -1197,6 +1215,13 @@ export function RadarSimulator() {
 
   const dispatchCommand = (value: string) => {
     const globalCommand = value.trim().toUpperCase();
+    if (globalCommand === "HELP") {
+      setShowHelp(true);
+      setWorld((current) =>
+        appendEvent(current, "system", "Command guide displayed."),
+      );
+      return;
+    }
     if (globalCommand === "SCALE") {
       setShowScale((current) => !current);
       setWorld((current) =>
@@ -1210,6 +1235,9 @@ export function RadarSimulator() {
     }
     if (globalCommand === "STATS") {
       setShowStats(true);
+      setWorld((current) =>
+        appendEvent(current, "system", "Performance statistics displayed."),
+      );
       return;
     }
     if (["QUIT", "EXIT"].includes(globalCommand)) {
@@ -1234,6 +1262,9 @@ export function RadarSimulator() {
       setShiftComplete(true);
       setShowStats(true);
       setPaused(true);
+      setWorld((current) =>
+        appendEvent(current, "system", "Shift complete · Score recorded locally."),
+      );
       return;
     }
     if (!activeSelection) {
@@ -1648,13 +1679,14 @@ export function RadarSimulator() {
                     <strong>{flight.callsign}</strong>
                     <small>
                       {flight.type} · WTC {flight.wake} · HDG{" "}
-                      {String(Math.round(flight.heading)).padStart(3, "0")}° ·{" "}
+                      {String(Math.round(clearedHeading(flight))).padStart(3, "0")}
+                      ° ·{" "}
                       {Math.round(flight.speed)}KT
                     </small>
                   </span>
                   <span className="strip-data">
                     <strong>
-                      {altitudeLabel(flight.altitude)}
+                      {altitudeLabel(flight.targetAltitude)}
                       {flight.targetAltitude > flight.altitude + 30
                         ? "↑"
                         : flight.targetAltitude < flight.altitude - 30
@@ -1766,8 +1798,8 @@ export function RadarSimulator() {
                 <span>Combined altitude, route, and takeoff clearance</span>
               </div>
               <div>
-                <code>SCALE · STATS · EXIT</code>
-                <span>Scale, performance, and local high-score commands</span>
+                <code>HELP · SCALE · STATS · EXIT</code>
+                <span>Guide, scale, performance, and local high scores</span>
               </div>
             </div>
             <div className="safety-note">
