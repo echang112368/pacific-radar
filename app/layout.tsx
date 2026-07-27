@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const imageUrl = host ? `${protocol}://${host}/og.png` : undefined;
   const title = "Pacific Radar — Santa Monica Tower";
   const description =
-    "A deterministic, browser-based air traffic control prototype at Santa Monica Municipal Airport.";
+    "Control arrivals and departures across a 35 NM satellite radar scope at Santa Monica Municipal Airport.";
 
   return {
     title,

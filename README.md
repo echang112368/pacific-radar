@@ -5,10 +5,16 @@ Santa Monica Municipal Airport (KSMO) and its single 3,500-foot Runway 03/21.
 
 The current prototype includes:
 
-- A real, attributed satellite background centered on KSMO.
-- A deterministic moving radar picture with arrivals and a departure.
+- A real, attributed 35 NM satellite scope covering the Los Angeles terminal
+  area around KSMO.
+- A deterministic moving radar picture with multiple arrivals and departures.
+- Selectable active-control flight cards with callsign, type, altitude,
+  heading, speed, status, and assigned departure exit.
+- Radar history trails and five named edge fixes for outbound handoffs.
+- Successful arrival removal at touchdown, successful departure removal at the
+  assigned exit, and fallback handoff when a departure leaves the scope.
 - Typed heading, altitude, speed, approach, landing, line-up, takeoff, and
-  go-around clearances.
+  go-around clearances, plus direct-to-exit routing.
 - Pilot readbacks, runway occupancy checks, unsafe-clearance blocking, and
   basic 3 NM / 1,000 ft separation monitoring.
 - Flight strips, a radio log, a shift score, and seeded reset behavior.

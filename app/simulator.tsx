@@ -15,6 +15,11 @@ type FlightStatus =
   | "LANDED"
   | "HANDOFF";
 
+type TrackPoint = {
+  x: number;
+  y: number;
+};
+
 type Aircraft = {
   callsign: string;
   type: string;
@@ -31,6 +36,8 @@ type Aircraft = {
   targetSpeed: number;
   landingCleared?: boolean;
   approach?: string;
+  exitFix?: string;
+  track: TrackPoint[];
   completed?: boolean;
 };
 
@@ -53,8 +60,8 @@ type World = {
 const RUNWAY = {
   active: "21",
   heading: 210,
-  threshold: { x: 56, y: 23 },
-  rollout: { x: 39, y: 47 },
+  threshold: { x: 52.2, y: 47.9 },
+  rollout: { x: 49.4, y: 50.7 },
 };
 
 const INITIAL_WORLD: World = {
@@ -70,14 +77,15 @@ const INITIAL_WORLD: World = {
       wake: "L",
       kind: "arrival",
       status: "INBOUND",
-      x: 84,
-      y: 8,
-      heading: 235,
-      targetHeading: 235,
-      altitude: 2600,
-      targetAltitude: 2600,
+      x: 91,
+      y: 9,
+      heading: 246,
+      targetHeading: 246,
+      altitude: 4600,
+      targetAltitude: 4600,
       speed: 115,
       targetSpeed: 115,
+      track: [],
     },
     {
       callsign: "JSX422",
@@ -85,14 +93,31 @@ const INITIAL_WORLD: World = {
       wake: "M",
       kind: "arrival",
       status: "INBOUND",
-      x: 93,
-      y: 66,
-      heading: 305,
-      targetHeading: 305,
-      altitude: 4200,
-      targetAltitude: 4200,
+      x: 96,
+      y: 76,
+      heading: 304,
+      targetHeading: 304,
+      altitude: 6200,
+      targetAltitude: 6200,
       speed: 190,
       targetSpeed: 190,
+      track: [],
+    },
+    {
+      callsign: "N91GX",
+      type: "C25A",
+      wake: "M",
+      kind: "arrival",
+      status: "INBOUND",
+      x: 17,
+      y: 4,
+      heading: 154,
+      targetHeading: 154,
+      altitude: 7200,
+      targetAltitude: 7200,
+      speed: 220,
+      targetSpeed: 220,
+      track: [],
     },
     {
       callsign: "N4382K",
@@ -100,14 +125,33 @@ const INITIAL_WORLD: World = {
       wake: "L",
       kind: "departure",
       status: "HOLD_SHORT",
-      x: 57.5,
-      y: 25,
+      x: 52.5,
+      y: 47.7,
       heading: 210,
       targetHeading: 210,
       altitude: 177,
       targetAltitude: 2500,
       speed: 0,
       targetSpeed: 0,
+      exitFix: "MALIBU",
+      track: [],
+    },
+    {
+      callsign: "SURF52",
+      type: "PC12",
+      wake: "M",
+      kind: "departure",
+      status: "DEPARTURE",
+      x: 47,
+      y: 55,
+      heading: 152,
+      targetHeading: 152,
+      altitude: 1900,
+      targetAltitude: 5000,
+      speed: 145,
+      targetSpeed: 175,
+      exitFix: "LAXX",
+      track: [],
     },
   ],
   events: [
@@ -119,24 +163,39 @@ const INITIAL_WORLD: World = {
     {
       tick: 0,
       tone: "pilot",
-      message: "N172SP: Eight miles northeast, 2,600, inbound full stop.",
+      message: "N172SP: Thirteen miles northeast, 4,600, inbound full stop.",
     },
     {
       tick: 0,
       tone: "pilot",
       message: "N4382K: Holding short Runway 21, ready for departure.",
     },
+    {
+      tick: 0,
+      tone: "pilot",
+      message: "SURF52: Passing 1,900 for 5,000, LAXX departure.",
+    },
   ],
 };
 
 const FIXES = [
-  { name: "DARTS", x: 75, y: 17, kind: "fix" },
-  { name: "MORVE", x: 69, y: 34, kind: "fix" },
-  { name: "WAKER", x: 24, y: 26, kind: "fix" },
-  { name: "SMO", x: 48, y: 36, kind: "vor" },
-  { name: "SESPE", x: 18, y: 13, kind: "vor" },
-  { name: "NATJU", x: 82, y: 56, kind: "fix" },
+  { name: "DARTS", x: 73, y: 28, kind: "fix" },
+  { name: "MORVE", x: 67, y: 42, kind: "fix" },
+  { name: "WAKER", x: 29, y: 38, kind: "fix" },
+  { name: "SMO", x: 50, y: 50, kind: "vor" },
+  { name: "VNY", x: 44, y: 6, kind: "vor" },
+  { name: "LAX", x: 57, y: 68, kind: "vor" },
+  { name: "HHR", x: 68, y: 72, kind: "vor" },
+  { name: "NATJU", x: 78, y: 61, kind: "fix" },
 ];
+
+const EXIT_FIXES = [
+  { name: "VNY", x: 20, y: 2, edge: "north" },
+  { name: "HOLTZ", x: 98, y: 22, edge: "east" },
+  { name: "SADDE", x: 98, y: 73, edge: "east" },
+  { name: "LAXX", x: 66, y: 98, edge: "south" },
+  { name: "MALIBU", x: 2, y: 70, edge: "west" },
+] as const;
 
 const QUICK_COMMANDS = [
   { label: "Heading 210", command: "H 210" },
@@ -178,7 +237,17 @@ function runwayOccupied(aircraft: Aircraft[]) {
 }
 
 function distance(a: Aircraft, b: Aircraft) {
-  return Math.hypot(a.x - b.x, a.y - b.y) * 0.16;
+  return Math.hypot(a.x - b.x, a.y - b.y) * 0.35;
+}
+
+function headingToPoint(
+  from: Pick<Aircraft, "x" | "y">,
+  to: { x: number; y: number },
+) {
+  return (
+    ((Math.atan2(to.x - from.x, from.y - to.y) * 180) / Math.PI + 360) %
+    360
+  );
 }
 
 function stepWorld(previous: World): World {
@@ -187,6 +256,12 @@ function stepWorld(previous: World): World {
     if (flight.completed || flight.status === "HANDOFF") return flight;
 
     const next = { ...flight };
+    if (
+      previous.tick % 5 === 0 &&
+      !["HOLD_SHORT", "LINE_UP"].includes(next.status)
+    ) {
+      next.track = [...next.track.slice(-13), { x: next.x, y: next.y }];
+    }
     next.heading = turnToward(next.heading, next.targetHeading, 0.8);
     next.altitude = moveToward(next.altitude, next.targetAltitude, 16);
     next.speed = moveToward(next.speed, next.targetSpeed, 1.5);
@@ -196,7 +271,7 @@ function stepWorld(previous: World): World {
       next.speed > 0
     ) {
       const radians = (next.heading * Math.PI) / 180;
-      const travel = next.speed / 15000;
+      const travel = next.speed / 5000;
       next.x += Math.sin(radians) * travel;
       next.y -= Math.cos(radians) * travel;
     }
@@ -205,19 +280,19 @@ function stepWorld(previous: World): World {
       const dx = RUNWAY.threshold.x - next.x;
       const dy = RUNWAY.threshold.y - next.y;
       const dist = Math.hypot(dx, dy);
-      const travel = Math.max(next.speed, 80) / 12000;
+      const travel = Math.max(next.speed, 80) / 5000;
       next.x += (dx / Math.max(dist, 0.01)) * travel;
       next.y += (dy / Math.max(dist, 0.01)) * travel;
       next.targetHeading = RUNWAY.heading;
       next.targetAltitude = Math.max(177, Math.min(next.altitude, dist * 115));
-      next.targetSpeed = next.type === "E145" ? 125 : 85;
+      next.targetSpeed = next.wake === "M" ? 125 : 85;
 
       if (dist < 7) next.status = "FINAL";
       if (dist < 1.2 && !next.landingCleared) {
         next.status = "GO_AROUND";
         next.targetHeading = 210;
         next.targetAltitude = 3000;
-        next.targetSpeed = next.type === "E145" ? 170 : 110;
+        next.targetSpeed = next.wake === "M" ? 170 : 110;
         next.landingCleared = false;
         world = appendEvent(
           world,
@@ -228,26 +303,15 @@ function stepWorld(previous: World): World {
         next.status = "LANDED";
         next.altitude = 177;
         next.targetAltitude = 177;
-        next.speed = next.type === "E145" ? 95 : 65;
-        next.targetSpeed = 20;
-      }
-    }
-
-    if (next.status === "LANDED") {
-      const dx = RUNWAY.rollout.x - next.x;
-      const dy = RUNWAY.rollout.y - next.y;
-      const dist = Math.hypot(dx, dy);
-      const travel = Math.max(next.speed, 12) / 15000;
-      next.x += (dx / Math.max(dist, 0.01)) * travel;
-      next.y += (dy / Math.max(dist, 0.01)) * travel;
-      if (dist < 1.2) {
+        next.speed = 0;
+        next.targetSpeed = 0;
         next.completed = true;
         world.safeOperations += 1;
         world.score += 250;
         world = appendEvent(
           world,
           "success",
-          `${next.callsign}: Runway 21 vacated. Landing complete.`,
+          `${next.callsign}: Touchdown Runway 21. Landing complete.`,
         );
       }
     }
@@ -257,7 +321,7 @@ function stepWorld(previous: World): World {
       const dy = RUNWAY.rollout.y - next.y;
       const dist = Math.hypot(dx, dy);
       next.speed = moveToward(next.speed, 78, 2.2);
-      const travel = Math.max(next.speed, 8) / 11500;
+      const travel = Math.max(next.speed, 8) / 4800;
       next.x += (dx / Math.max(dist, 0.01)) * travel;
       next.y += (dy / Math.max(dist, 0.01)) * travel;
       if (next.speed >= 72 || dist < 2) {
@@ -267,20 +331,33 @@ function stepWorld(previous: World): World {
       }
     }
 
-    if (
-      next.status === "DEPARTURE" &&
-      next.altitude > 2200 &&
-      (next.x < 3 || next.x > 97 || next.y < 3 || next.y > 97)
-    ) {
-      next.status = "HANDOFF";
-      next.completed = true;
-      world.safeOperations += 1;
-      world.score += 220;
-      world = appendEvent(
-        world,
-        "success",
-        `${next.callsign}: Contact SoCal Departure. Good day.`,
-      );
+    if (next.status === "DEPARTURE") {
+      const exit = EXIT_FIXES.find((fix) => fix.name === next.exitFix);
+      const reachedExit =
+        exit && Math.hypot(next.x - exit.x, next.y - exit.y) < 2.7;
+      const leftScope =
+        next.x < 0.5 || next.x > 99.5 || next.y < 0.5 || next.y > 99.5;
+
+      if (reachedExit && next.altitude > 1800) {
+        next.status = "HANDOFF";
+        next.completed = true;
+        world.safeOperations += 1;
+        world.score += 220;
+        world = appendEvent(
+          world,
+          "success",
+          `${next.callsign}: ${exit.name} exit reached. Contact SoCal Departure.`,
+        );
+      } else if (leftScope) {
+        next.status = "HANDOFF";
+        next.completed = true;
+        world.score += 60;
+        world = appendEvent(
+          world,
+          "system",
+          `${next.callsign}: Leaving tower scope — handed to nearby airspace.`,
+        );
+      }
     }
 
     return next;
@@ -342,7 +419,7 @@ function executeCommand(
   let tokens = normalized.split(" ");
   let callsign = selectedCallsign;
   const explicit = previous.aircraft.find(
-    (flight) => flight.callsign === tokens[0],
+    (flight) => flight.callsign === tokens[0] && !flight.completed,
   );
   if (explicit) {
     callsign = explicit.callsign;
@@ -390,9 +467,28 @@ function executeCommand(
   }
 
   if (["S", "SPD", "SPEED"].includes(command) && value !== null) {
-    flight.targetSpeed = clamp(value, 70, flight.type === "E145" ? 250 : 140);
+    flight.targetSpeed = clamp(value, 70, flight.wake === "M" ? 250 : 140);
     return acknowledge(
       `${flight.callsign}: Speed ${flight.targetSpeed} knots.`,
+    );
+  }
+
+  if (["DCT", "DIRECT"].includes(command) && tokens[1]) {
+    if (flight.kind !== "departure" || flight.status !== "DEPARTURE") {
+      return reject(
+        `${flight.callsign}: Unable direct exit until airborne on departure.`,
+      );
+    }
+    const exit = EXIT_FIXES.find((fix) => fix.name === tokens[1]);
+    if (!exit) {
+      return reject(
+        `${flight.callsign}: Unknown exit. Use VNY, HOLTZ, SADDE, LAXX, or MALIBU.`,
+      );
+    }
+    flight.exitFix = exit.name;
+    flight.targetHeading = Math.round(headingToPoint(flight, exit));
+    return acknowledge(
+      `${flight.callsign}: Direct ${exit.name}, heading ${String(flight.targetHeading).padStart(3, "0")}.`,
     );
   }
 
@@ -412,7 +508,7 @@ function executeCommand(
     flight.status = "APPROACH";
     flight.approach = "RNAV 21";
     flight.targetHeading = 210;
-    flight.targetSpeed = flight.type === "E145" ? 140 : 95;
+    flight.targetSpeed = flight.wake === "M" ? 140 : 95;
     return acknowledge(
       `${flight.callsign}: Cleared RNAV Runway 21 approach.`,
     );
@@ -444,7 +540,7 @@ function executeCommand(
     flight.landingCleared = false;
     flight.targetHeading = 210;
     flight.targetAltitude = 3000;
-    flight.targetSpeed = flight.type === "E145" ? 170 : 110;
+    flight.targetSpeed = flight.wake === "M" ? 170 : 110;
     return acknowledge(
       `${flight.callsign}: Going around, runway heading, 3,000.`,
     );
@@ -520,7 +616,7 @@ function executeCommand(
   }
 
   return reject(
-    `Command not understood: “${normalized}”. Try H 210, A 1400, APP RNAV21, LDG 21, LUAW 21, TO 21, or GA.`,
+    `Command not understood: “${normalized}”. Try H 210, A 1400, APP RNAV21, LDG 21, LUAW 21, TO 21, DCT MALIBU, or GA.`,
   );
 }
 
@@ -573,7 +669,10 @@ export function RadarSimulator() {
   );
 
   const selectedFlight =
-    world.aircraft.find((flight) => flight.callsign === selected) ?? null;
+    visibleAircraft.find((flight) => flight.callsign === selected) ??
+    visibleAircraft[0] ??
+    null;
+  const activeSelection = selectedFlight?.callsign ?? null;
 
   const alerts = useMemo(() => {
     const result: string[] = [];
@@ -602,14 +701,18 @@ export function RadarSimulator() {
   const transmit = (event?: FormEvent) => {
     event?.preventDefault();
     if (!command.trim()) return;
-    setWorld((current) => executeCommand(current, command, selected));
+    setWorld((current) =>
+      executeCommand(current, command, activeSelection),
+    );
     setCommand("");
     inputRef.current?.focus();
   };
 
   const runQuickCommand = (value: string) => {
-    if (!selected) return;
-    setWorld((current) => executeCommand(current, value, selected));
+    if (!activeSelection) return;
+    setWorld((current) =>
+      executeCommand(current, value, activeSelection),
+    );
     inputRef.current?.focus();
   };
 
@@ -682,6 +785,7 @@ export function RadarSimulator() {
             >
               <div className="satellite-layer" />
               <div className="radar-tint" />
+              <div className="scope-boundary" />
               <div className="range-ring ring-one" />
               <div className="range-ring ring-two" />
               <div className="range-ring ring-three" />
@@ -701,9 +805,56 @@ export function RadarSimulator() {
                 </div>
               ))}
 
+              {EXIT_FIXES.map((fix) => (
+                <div
+                  className={`exit-marker edge-${fix.edge}`}
+                  key={fix.name}
+                  style={{ left: `${fix.x}%`, top: `${fix.y}%` }}
+                >
+                  <span className="exit-arrow" aria-hidden="true" />
+                  <span>
+                    <strong>{fix.name}</strong>
+                    <small>EXIT</small>
+                  </span>
+                </div>
+              ))}
+
+              <svg
+                className="track-layer"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                {visibleAircraft.map((flight) => {
+                  const points = [
+                    ...flight.track,
+                    { x: flight.x, y: flight.y },
+                  ];
+                  return (
+                    <g
+                      className={`history-group ${flight.kind} ${activeSelection === flight.callsign ? "selected" : ""}`}
+                      key={flight.callsign}
+                    >
+                      <polyline
+                        points={points.map((point) => `${point.x},${point.y}`).join(" ")}
+                      />
+                      {flight.track.map((point, index) => (
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          key={`${flight.callsign}-${index}`}
+                          r={activeSelection === flight.callsign ? 0.16 : 0.12}
+                          opacity={(index + 2) / (flight.track.length + 2)}
+                        />
+                      ))}
+                    </g>
+                  );
+                })}
+              </svg>
+
               {visibleAircraft.map((flight) => (
                 <button
-                  className={`aircraft-target ${selected === flight.callsign ? "selected" : ""} ${flight.kind}`}
+                  className={`aircraft-target ${activeSelection === flight.callsign ? "selected" : ""} ${flight.kind}`}
                   key={flight.callsign}
                   style={{
                     left: `${clamp(flight.x, 1, 98)}%`,
@@ -713,7 +864,7 @@ export function RadarSimulator() {
                     setSelected(flight.callsign);
                     inputRef.current?.focus();
                   }}
-                  aria-label={`Select ${flight.callsign}`}
+                  aria-label={`Select ${flight.callsign}, altitude ${Math.round(flight.altitude)} feet, heading ${Math.round(flight.heading)}`}
                 >
                   <span
                     className="target-chevron"
@@ -729,16 +880,21 @@ export function RadarSimulator() {
                         : flight.targetAltitude < flight.altitude - 30
                           ? "↓"
                           : "·"}{" "}
-                      {Math.round(flight.speed)}
+                      {String(Math.round(flight.heading)).padStart(3, "0")}°
                     </span>
-                    <span>{statusLabel(flight.status)}</span>
+                    <span>
+                      {Math.round(flight.speed)}KT ·{" "}
+                      {flight.kind === "departure" && flight.exitFix
+                        ? flight.exitFix
+                        : statusLabel(flight.status)}
+                    </span>
                   </span>
                 </button>
               ))}
 
               <div className="map-title">
-                <span>SMO TOWER · 12 NM</span>
-                <strong>RWY 03/21 · 3,500 × 150 FT</strong>
+                <span>SMO TOWER · 35 NM TERMINAL SCOPE</span>
+                <strong>RWY 03/21 · 3,500 × 150 FT · 5 NM RINGS</strong>
               </div>
 
               <div className="map-controls">
@@ -792,8 +948,8 @@ export function RadarSimulator() {
                     value={command}
                     onChange={(event) => setCommand(event.target.value)}
                     placeholder={
-                      selected
-                        ? `${selected} H 210 · press Enter`
+                      activeSelection
+                        ? `${activeSelection} H 210 · press Enter`
                         : "Select an aircraft"
                     }
                     autoComplete="off"
@@ -803,11 +959,22 @@ export function RadarSimulator() {
                 </div>
               </form>
               <div className="quick-commands" aria-label="Quick commands">
+                {selectedFlight?.kind === "departure" &&
+                  selectedFlight.status === "DEPARTURE" &&
+                  selectedFlight.exitFix && (
+                    <button
+                      onClick={() =>
+                        runQuickCommand(`DCT ${selectedFlight.exitFix}`)
+                      }
+                    >
+                      Direct {selectedFlight.exitFix}
+                    </button>
+                  )}
                 {QUICK_COMMANDS.map((item) => (
                   <button
                     key={item.command}
                     onClick={() => runQuickCommand(item.command)}
-                    disabled={!selected}
+                    disabled={!activeSelection}
                   >
                     {item.label}
                   </button>
@@ -839,15 +1006,15 @@ export function RadarSimulator() {
           <section className="panel-section strips-section">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">TRAFFIC BOARD</p>
-                <h2>Flight strips</h2>
+                <p className="eyebrow">YOUR AIRSPACE</p>
+                <h2>Active control</h2>
               </div>
               <span>{visibleAircraft.length} active</span>
             </div>
             <div className="strip-stack">
-              {visibleAircraft.map((flight) => (
+              {visibleAircraft.map((flight, index) => (
                 <button
-                  className={`flight-strip ${flight.kind} ${selected === flight.callsign ? "selected" : ""}`}
+                  className={`flight-strip ${flight.kind} ${activeSelection === flight.callsign ? "selected" : ""}`}
                   key={flight.callsign}
                   onClick={() => {
                     setSelected(flight.callsign);
@@ -855,21 +1022,28 @@ export function RadarSimulator() {
                   }}
                 >
                   <span className="strip-sequence">
-                    {flight.kind === "arrival" ? "ARR" : "DEP"}
+                    {String(index + 1).padStart(2, "0")}
                   </span>
                   <span className="strip-main">
-                    <strong>{flight.callsign}</strong>
+                    <span className="strip-topline">
+                      <strong>{flight.callsign}</strong>
+                      <b>{flight.kind === "arrival" ? "ARRIVAL" : "DEPARTURE"}</b>
+                    </span>
                     <small>
-                      {flight.type} · WTC {flight.wake}
+                      {flight.type} · WTC {flight.wake} · HDG{" "}
+                      {String(Math.round(flight.heading)).padStart(3, "0")}°
                     </small>
                   </span>
                   <span className="strip-data">
-                    <strong>{Math.round(flight.altitude)}&apos;</strong>
-                    <small>{Math.round(flight.speed)} KT</small>
+                    <strong>{altitudeLabel(flight.altitude)}</strong>
+                    <small>{Math.round(flight.speed)}KT</small>
                   </span>
                   <span className="strip-status">
-                    {statusLabel(flight.status)}
+                    {flight.kind === "arrival"
+                      ? statusLabel(flight.status)
+                      : `EXIT ${flight.exitFix ?? "TBD"} · ${statusLabel(flight.status)}`}
                   </span>
+                  <span className="strip-locate" aria-hidden="true">⌖</span>
                 </button>
               ))}
             </div>
@@ -958,6 +1132,10 @@ export function RadarSimulator() {
               <div>
                 <code>GA</code>
                 <span>Issue go-around</span>
+              </div>
+              <div>
+                <code>DCT MALIBU</code>
+                <span>Send a departure direct to its exit fix</span>
               </div>
             </div>
             <div className="safety-note">
