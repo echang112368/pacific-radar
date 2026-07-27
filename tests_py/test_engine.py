@@ -49,6 +49,16 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(event.event_type, "clearance_accepted")
         self.assertTrue(simulation.aircraft["N172SP"].landing_cleared)
 
+    def test_arrival_can_land_on_reciprocal_runway_end(self) -> None:
+        simulation = make_simulation()
+        arrival = simulation.aircraft["N172SP"]
+        arrival.heading_deg = 30
+        arrival.altitude_ft = 2_600
+        event = simulation.issue("N172SP", "L 03")
+        self.assertEqual(event.event_type, "clearance_accepted")
+        self.assertEqual(arrival.assigned_runway, "03")
+        self.assertTrue(arrival.landing_cleared)
+
     def test_line_up_is_not_takeoff_clearance(self) -> None:
         simulation = make_simulation()
         event = simulation.issue("N4382K", "W")
@@ -75,6 +85,16 @@ class SimulationTests(unittest.TestCase):
             simulation.aircraft["N4382K"].state,
             AircraftState.TAKEOFF_ROLL,
         )
+
+    def test_departure_can_take_off_from_reciprocal_runway_end(self) -> None:
+        simulation = make_simulation()
+        departure = simulation.aircraft["N4382K"]
+        departure.assigned_runway = "03"
+        simulation.issue("N4382K", "C 5")
+        event = simulation.issue("N4382K", "T")
+        self.assertEqual(event.event_type, "clearance_accepted")
+        self.assertEqual(departure.heading_deg, 30)
+        self.assertIs(departure.state, AircraftState.TAKEOFF_ROLL)
 
     def test_runway_occupancy_blocks_landing_clearance(self) -> None:
         simulation = make_simulation()

@@ -31,6 +31,16 @@ class Runway:
     length_ft: int
     elevation_ft: int
 
+    def has_end(self, name: str) -> bool:
+        return name in {self.name, self.reciprocal}
+
+    def heading_for(self, name: str) -> int:
+        if name == self.name:
+            return self.heading_deg
+        if name == self.reciprocal:
+            return (self.heading_deg + 180) % 360
+        raise ValueError(f"Unknown runway end: {name}")
+
 
 @dataclass(slots=True)
 class Aircraft:
@@ -48,6 +58,7 @@ class Aircraft:
     landing_cleared: bool = False
     approach_cleared: bool = False
     departure_altitude_assigned: bool = False
+    assigned_runway: str | None = None
     requested_fix: str | None = None
     expedite: bool = False
 

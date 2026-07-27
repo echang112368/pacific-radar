@@ -320,38 +320,24 @@ h2 {
 .runway-end-label {
   position: absolute;
   z-index: 3;
-  display: grid;
-  min-width: 46px;
-  padding: 4px 6px;
-  border: 1px solid rgba(181, 243, 217, 0.5);
-  background: rgba(3, 22, 20, 0.9);
   color: var(--mint);
   font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   line-height: 1;
   pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-}
-
-.runway-end-label strong {
-  font-size: 12px;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-}
-
-.runway-end-label small {
-  margin-top: 3px;
-  color: rgba(181, 243, 217, 0.72);
-  font-size: 5.5px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  text-shadow:
+    0 1px 3px #00110d,
+    0 0 5px #00110d;
 }
 
 .runway-end-21 {
-  transform: translate(10px, -34px);
+  transform: translate(8px, -17px);
 }
 
 .runway-end-03 {
-  transform: translate(-56px, 10px);
+  transform: translate(-20px, 8px);
 }
 
 .fix-marker {

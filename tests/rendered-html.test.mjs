@@ -52,7 +52,7 @@ test("includes terminal-scope completion and handoff behavior", async () => {
   ]);
 
   assert.match(simulator, /const EXIT_FIXES/);
-  assert.match(simulator, /Touchdown Runway 21\. Landing complete\./);
+  assert.match(simulator, /Touchdown Runway \$\{next\.runway \?\? "21"\}/);
   assert.match(simulator, /handed to nearby airspace\./);
   assert.match(simulator, /\["DCT", "DIRECT"\]/);
   assert.match(simulator, /appendGroundTrackSample/);
@@ -106,19 +106,26 @@ test("aligns departures to KSMO Runway 03/21 and uses the full takeoff roll", as
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(simulator, /reciprocal:\s*"03"/);
+  assert.match(simulator, /type RunwayEnd = "03" \| "21"/);
   assert.match(simulator, /designation:\s*"03\/21"/);
-  assert.match(simulator, /departureEnd:\s*\{/);
+  assert.match(simulator, /"21":\s*\{[^}]*heading:\s*210/s);
+  assert.match(simulator, /"03":\s*\{[^}]*heading:\s*30/s);
+  assert.match(simulator, /runway:\s*"03"/);
   assert.match(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE = 3\.5/);
   assert.match(simulator, /if \(dist <= travel\)/);
-  assert.match(simulator, /next\.x = RUNWAY\.departureEnd\.x/);
+  assert.match(simulator, /next\.x = runway\.rolloutEnd\.x/);
   assert.match(simulator, /next\.status = "DEPARTURE"/);
   assert.doesNotMatch(simulator, /next\.speed >= 72 \|\| dist < 2/);
   assert.match(simulator, /className="runway-layer"/);
-  assert.match(simulator, /ACTIVE END/);
-  assert.match(simulator, /RECIPROCAL/);
+  assert.match(simulator, /normalizeRunwayEnd/);
+  assert.match(simulator, /Unknown runway \$\{runwayToken\}; use 03 or 21/);
+  assert.doesNotMatch(simulator, /ACTIVE END/);
+  assert.doesNotMatch(simulator, /RECIPROCAL/);
   assert.match(css, /\.runway-layer/);
   assert.match(css, /\.runway-end-label/);
+  const runwayLabel =
+    css.match(/\.runway-end-label\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.doesNotMatch(runwayLabel, /\bborder\s*:|\bbackground\s*:/);
 });
 
 test("pause is a planning state with compact, boxless traffic displays", async () => {

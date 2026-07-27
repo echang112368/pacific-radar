@@ -73,16 +73,20 @@ class Simulation:
                 continue
 
             if action in {"L", "LDG", "LAND"}:
-                runway = tokens[cursor + 1] if cursor + 1 < len(tokens) else self.runway.name
-                if runway != self.runway.name:
+                runway = (
+                    tokens[cursor + 1].replace("RWY", "")
+                    if cursor + 1 < len(tokens)
+                    else aircraft.assigned_runway or self.runway.name
+                )
+                if not self.runway.has_end(runway):
                     return self._event(
-                        "command_rejected", callsign, reason="runway is not active"
+                        "command_rejected", callsign, reason="unknown runway end"
                     )
                 if (
                     aircraft.kind is not FlightKind.ARRIVAL
                     or aircraft.altitude_ft - self.runway.elevation_ft > 3_000
                     or self._angular_difference(
-                        aircraft.heading_deg, self.runway.heading_deg
+                        aircraft.heading_deg, self.runway.heading_for(runway)
                     )
                     > 60
                 ):
@@ -101,6 +105,7 @@ class Simulation:
                     )
                 aircraft.approach_cleared = True
                 aircraft.landing_cleared = True
+                aircraft.assigned_runway = runway
                 aircraft.state = AircraftState.APPROACH
                 clearances.append("landing")
                 cursor += 2 if cursor + 1 < len(tokens) else 1
@@ -130,6 +135,10 @@ class Simulation:
                         occupant=(occupant or final).callsign,
                     )
                 aircraft.state = AircraftState.LINE_UP
+                assigned_runway = aircraft.assigned_runway or self.runway.name
+                aircraft.assigned_runway = assigned_runway
+                aircraft.heading_deg = self.runway.heading_for(assigned_runway)
+                aircraft.target_heading_deg = aircraft.heading_deg
                 clearances.append("line_up_and_wait")
                 cursor += 1
                 continue
@@ -178,6 +187,10 @@ class Simulation:
                         occupant=(occupant or final).callsign,
                     )
                 aircraft.state = AircraftState.TAKEOFF_ROLL
+                assigned_runway = aircraft.assigned_runway or self.runway.name
+                aircraft.assigned_runway = assigned_runway
+                aircraft.heading_deg = self.runway.heading_for(assigned_runway)
+                aircraft.target_heading_deg = aircraft.heading_deg
                 aircraft.target_speed_kt = 80
                 clearances.append("takeoff")
                 cursor += 1
@@ -206,7 +219,9 @@ class Simulation:
                     aircraft.state = AircraftState.GO_AROUND
                     aircraft.landing_cleared = False
                     aircraft.target_altitude_ft = 3_000
-                    aircraft.target_heading_deg = self.runway.heading_deg
+                    aircraft.target_heading_deg = self.runway.heading_for(
+                        aircraft.assigned_runway or self.runway.name
+                    )
                     clearances.append("go_around")
                     cursor += 1
                     continue
