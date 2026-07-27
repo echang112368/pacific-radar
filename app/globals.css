@@ -286,40 +286,69 @@ h2 {
   aspect-ratio: 1;
 }
 
-.runway-overlay {
+.runway-layer {
   position: absolute;
   z-index: 1;
-  left: 49.4%;
-  top: 50.7%;
-  width: 4%;
-  height: 4px;
-  border: 1px solid rgba(195, 255, 231, 0.88);
-  background: rgba(180, 245, 220, 0.25);
-  box-shadow:
-    0 0 0 2px rgba(6, 21, 21, 0.6),
-    0 0 18px rgba(126, 250, 204, 0.3);
-  transform: rotate(-45deg);
-  transform-origin: left center;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
 }
 
-.runway-number {
+.runway-outline,
+.runway-surface {
+  vector-effect: non-scaling-stroke;
+}
+
+.runway-outline {
+  stroke: rgba(2, 15, 14, 0.92);
+  stroke-width: 8;
+  stroke-linecap: square;
+}
+
+.runway-surface {
+  stroke: rgba(202, 255, 235, 0.9);
+  stroke-width: 4;
+  stroke-linecap: square;
+  filter: drop-shadow(0 0 5px rgba(126, 250, 204, 0.48));
+}
+
+.runway-end-label {
   position: absolute;
+  z-index: 3;
+  display: grid;
+  min-width: 46px;
+  padding: 4px 6px;
+  border: 1px solid rgba(181, 243, 217, 0.5);
+  background: rgba(3, 22, 20, 0.9);
   color: var(--mint);
   font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 800;
-  text-shadow: 0 1px 4px #00110d;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
-.runway-21 {
-  right: -23px;
-  top: -5px;
+.runway-end-label strong {
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
 }
 
-.runway-03 {
-  left: -23px;
-  top: -5px;
-  transform: rotate(180deg);
+.runway-end-label small {
+  margin-top: 3px;
+  color: rgba(181, 243, 217, 0.72);
+  font-size: 5.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.runway-end-21 {
+  transform: translate(10px, -34px);
+}
+
+.runway-end-03 {
+  transform: translate(-56px, 10px);
 }
 
 .fix-marker {

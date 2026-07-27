@@ -77,10 +77,12 @@ type HighScore = {
 
 const RUNWAY = {
   active: "21",
+  reciprocal: "03",
+  designation: "03/21",
   heading: 210,
   elevation: 177,
   threshold: { x: 52.2, y: 47.9 },
-  rollout: { x: 49.4, y: 50.7 },
+  departureEnd: { x: 49.4, y: 50.7 },
 };
 
 const SIMULATION_TICKS_PER_SECOND = 4;
@@ -92,7 +94,7 @@ const TRACK_HISTORY_TICKS =
   SIMULATION_TICKS_PER_SECOND * TRACK_HISTORY_SECONDS;
 const SCOPE_NM_PER_WORLD_UNIT = 0.35;
 const BACKGROUND_MOVEMENT_SCALE = 1.35;
-const TAKEOFF_ROLL_MOVEMENT_SCALE = 1.05;
+const TAKEOFF_ROLL_MOVEMENT_SCALE = 3.5;
 
 const INITIAL_WORLD: World = {
   tick: 0,
@@ -443,6 +445,12 @@ function smoothGroundTrack(points: TrackPoint[]) {
 }
 
 function currentGroundMotion(flight: Aircraft) {
+  if (flight.status === "TAKEOFF_ROLL") {
+    return {
+      groundSpeed: flight.speed,
+      groundTrack: headingToPoint(RUNWAY.threshold, RUNWAY.departureEnd),
+    };
+  }
   const latest = flight.track.at(-1);
   return {
     groundSpeed: flight.groundSpeed ?? latest?.groundSpeed ?? 0,
@@ -554,23 +562,26 @@ function stepWorld(previous: World): World {
     }
 
     if (next.status === "TAKEOFF_ROLL") {
-      const dx = RUNWAY.rollout.x - next.x;
-      const dy = RUNWAY.rollout.y - next.y;
+      const dx = RUNWAY.departureEnd.x - next.x;
+      const dy = RUNWAY.departureEnd.y - next.y;
       const dist = Math.hypot(dx, dy);
       next.speed = moveToward(next.speed, 78, 2.2);
       const travel = groundTravelForKnots(
         Math.max(next.speed, 8),
         TAKEOFF_ROLL_MOVEMENT_SCALE,
       );
-      next.x += (dx / Math.max(dist, 0.01)) * travel;
-      next.y += (dy / Math.max(dist, 0.01)) * travel;
-      if (next.speed >= 72 || dist < 2) {
+      if (dist <= travel) {
+        next.x = RUNWAY.departureEnd.x;
+        next.y = RUNWAY.departureEnd.y;
         next.status = "DEPARTURE";
         next.targetSpeed = 120;
         if (next.departureHeading !== undefined) {
           next.targetHeading = next.departureHeading;
           next.turnDirection = next.departureTurnDirection;
         }
+      } else {
+        next.x += (dx / Math.max(dist, 0.01)) * travel;
+        next.y += (dy / Math.max(dist, 0.01)) * travel;
       }
     }
 
@@ -622,7 +633,11 @@ function stepWorld(previous: World): World {
       y: next.y,
       tick: world.tick,
     });
-    next.groundSpeed = instantaneousMotion.groundSpeed;
+    next.groundSpeed =
+      instantaneousMotion.groundSpeed /
+      (flight.status === "TAKEOFF_ROLL"
+        ? TAKEOFF_ROLL_MOVEMENT_SCALE
+        : 1);
     if (instantaneousMotion.groundSpeed > 0.5) {
       next.groundTrack = instantaneousMotion.groundTrack;
     }
@@ -986,6 +1001,10 @@ function executeCommand(
       flight.status = "LINE_UP";
       flight.x = RUNWAY.threshold.x;
       flight.y = RUNWAY.threshold.y;
+      flight.heading = RUNWAY.heading;
+      flight.targetHeading = RUNWAY.heading;
+      flight.speed = 0;
+      flight.targetSpeed = 0;
       readbacks.push(`Runway ${RUNWAY.active}, line up and wait`);
       cursor += 1;
       continue;
@@ -1410,10 +1429,47 @@ export function RadarSimulator() {
               <div className="range-ring ring-one" />
               <div className="range-ring ring-two" />
               <div className="range-ring ring-three" />
-              <div className="runway-overlay" aria-label="Runway 03/21">
-                <span className="runway-number runway-21">21</span>
-                <span className="runway-number runway-03">03</span>
-              </div>
+              <svg
+                className="runway-layer"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-label={`KSMO Runway ${RUNWAY.designation}`}
+              >
+                <line
+                  className="runway-outline"
+                  x1={RUNWAY.departureEnd.x}
+                  y1={RUNWAY.departureEnd.y}
+                  x2={RUNWAY.threshold.x}
+                  y2={RUNWAY.threshold.y}
+                />
+                <line
+                  className="runway-surface"
+                  x1={RUNWAY.departureEnd.x}
+                  y1={RUNWAY.departureEnd.y}
+                  x2={RUNWAY.threshold.x}
+                  y2={RUNWAY.threshold.y}
+                />
+              </svg>
+              <span
+                className="runway-end-label runway-end-21"
+                style={{
+                  left: `${RUNWAY.threshold.x}%`,
+                  top: `${RUNWAY.threshold.y}%`,
+                }}
+              >
+                <strong>{RUNWAY.active}</strong>
+                <small>ACTIVE END</small>
+              </span>
+              <span
+                className="runway-end-label runway-end-03"
+                style={{
+                  left: `${RUNWAY.departureEnd.x}%`,
+                  top: `${RUNWAY.departureEnd.y}%`,
+                }}
+              >
+                <strong>{RUNWAY.reciprocal}</strong>
+                <small>RECIPROCAL</small>
+              </span>
 
               {FIXES.map((fix) => (
                 <div
@@ -1808,6 +1864,11 @@ export function RadarSimulator() {
                 Maintain 3 NM or 1,000 ft. Departures require an assigned
                 altitude. Landing requires 3,000 ft AGL or lower and a heading
                 within 60° of Runway 21.
+              </p>
+              <p>
+                KSMO has one runway designated 03/21. Runway 21 and Runway 03
+                are opposite ends of that runway; L/R suffixes are used only
+                when an airport has parallel runways.
               </p>
             </div>
             <button

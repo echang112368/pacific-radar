@@ -72,7 +72,7 @@ test("uses timestamped ground-track history with a fading fixed-time trail", asy
   assert.match(simulator, /groundSpeed:\s*number/);
   assert.match(simulator, /groundTrack:\s*number/);
   assert.match(simulator, /function groundMotionBetween/);
-  assert.match(simulator, /next\.groundSpeed = instantaneousMotion\.groundSpeed/);
+  assert.match(simulator, /next\.groundSpeed =\s*instantaneousMotion\.groundSpeed/s);
   assert.match(simulator, /function smoothGroundTrack/);
   assert.match(simulator, /tick - point\.tick <= TRACK_HISTORY_TICKS/);
   assert.match(simulator, /className="history-segment"/);
@@ -98,6 +98,27 @@ test("calibrates knot speed to faster movement across the satellite background",
   assert.match(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE/);
   assert.doesNotMatch(simulator, /next\.speed \/ 5000/);
   assert.doesNotMatch(simulator, /Math\.max\(next\.speed, 8\) \/ 4800/);
+});
+
+test("aligns departures to KSMO Runway 03/21 and uses the full takeoff roll", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /reciprocal:\s*"03"/);
+  assert.match(simulator, /designation:\s*"03\/21"/);
+  assert.match(simulator, /departureEnd:\s*\{/);
+  assert.match(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE = 3\.5/);
+  assert.match(simulator, /if \(dist <= travel\)/);
+  assert.match(simulator, /next\.x = RUNWAY\.departureEnd\.x/);
+  assert.match(simulator, /next\.status = "DEPARTURE"/);
+  assert.doesNotMatch(simulator, /next\.speed >= 72 \|\| dist < 2/);
+  assert.match(simulator, /className="runway-layer"/);
+  assert.match(simulator, /ACTIVE END/);
+  assert.match(simulator, /RECIPROCAL/);
+  assert.match(css, /\.runway-layer/);
+  assert.match(css, /\.runway-end-label/);
 });
 
 test("pause is a planning state with compact, boxless traffic displays", async () => {
