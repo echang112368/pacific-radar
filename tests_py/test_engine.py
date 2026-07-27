@@ -39,15 +39,19 @@ def make_simulation() -> Simulation:
 
 
 class SimulationTests(unittest.TestCase):
-    def test_approach_is_required_before_landing_clearance(self) -> None:
+    def test_landing_requires_three_thousand_agl_and_runway_heading(self) -> None:
         simulation = make_simulation()
-        event = simulation.issue("N172SP", "LDG 21")
+        simulation.aircraft["N172SP"].altitude_ft = 4_000
+        event = simulation.issue("N172SP", "L 21")
         self.assertEqual(event.event_type, "command_rejected")
-        self.assertEqual(event.detail["reason"], "approach clearance required")
+        simulation.aircraft["N172SP"].altitude_ft = 2_600
+        event = simulation.issue("N172SP", "L 21")
+        self.assertEqual(event.event_type, "clearance_accepted")
+        self.assertTrue(simulation.aircraft["N172SP"].landing_cleared)
 
     def test_line_up_is_not_takeoff_clearance(self) -> None:
         simulation = make_simulation()
-        event = simulation.issue("N4382K", "LUAW 21")
+        event = simulation.issue("N4382K", "W")
         self.assertEqual(event.event_type, "clearance_accepted")
         self.assertIs(
             simulation.aircraft["N4382K"].state,
@@ -60,25 +64,46 @@ class SimulationTests(unittest.TestCase):
         )
         self.assertEqual(simulation.aircraft["N4382K"].speed_kt, 0)
 
-    def test_takeoff_requires_line_up(self) -> None:
+    def test_takeoff_requires_assigned_altitude_but_not_line_up(self) -> None:
         simulation = make_simulation()
-        event = simulation.issue("N4382K", "TO 21")
+        event = simulation.issue("N4382K", "T")
         self.assertEqual(event.event_type, "command_rejected")
+        simulation.issue("N4382K", "C 5")
+        event = simulation.issue("N4382K", "T")
+        self.assertEqual(event.event_type, "clearance_accepted")
+        self.assertIs(
+            simulation.aircraft["N4382K"].state,
+            AircraftState.TAKEOFF_ROLL,
+        )
 
     def test_runway_occupancy_blocks_landing_clearance(self) -> None:
         simulation = make_simulation()
-        simulation.issue("N4382K", "LUAW 21")
-        simulation.issue("N172SP", "APP RNAV21")
-        event = simulation.issue("N172SP", "LDG 21")
+        simulation.issue("N4382K", "W")
+        event = simulation.issue("N172SP", "L 21")
         self.assertEqual(event.event_type, "unsafe_clearance_blocked")
         self.assertEqual(event.detail["occupant"], "N4382K")
+
+    def test_chained_departure_clearance(self) -> None:
+        simulation = make_simulation()
+        event = simulation.issue("N4382K", "C 5 C FONTI T")
+        departure = simulation.aircraft["N4382K"]
+        self.assertEqual(event.event_type, "clearance_accepted")
+        self.assertEqual(departure.target_altitude_ft, 5_000)
+        self.assertEqual(departure.requested_fix, "FONTI")
+        self.assertIs(departure.state, AircraftState.TAKEOFF_ROLL)
+
+    def test_ground_aircraft_does_not_climb_before_takeoff(self) -> None:
+        simulation = make_simulation()
+        simulation.issue("N4382K", "C 5")
+        simulation.step(30)
+        self.assertEqual(simulation.aircraft["N4382K"].altitude_ft, 177)
 
     def test_replay_is_deterministic(self) -> None:
         first = make_simulation()
         second = make_simulation()
         commands = [
-            ("N172SP", "H 210"),
-            ("N172SP", "A 1400"),
+            ("N172SP", "C 210"),
+            ("N172SP", "C 1"),
             ("N172SP", "S 100"),
         ]
         for callsign, command in commands:

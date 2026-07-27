@@ -33,7 +33,7 @@ test("server-renders the Pacific Radar simulator", async () => {
   assert.match(html, /SMO TOWER · 35 NM TERMINAL SCOPE/);
   assert.match(html, /Active control/);
   assert.match(html, /N172SP/);
-  assert.match(html, /EXIT MALIBU/);
+  assert.match(html, /RWY 21 · HOLD SHORT · TO MALIBU/);
   assert.match(html, /track-layer/);
   assert.doesNotMatch(html, /codex-preview|starter loading skeleton/i);
 });
@@ -77,4 +77,27 @@ test("pause is a planning state with compact, boxless traffic displays", async (
   assert.doesNotMatch(dataTag, /\bbackground\s*:|\bborder(?:-\w+)?\s*:|\boutline\s*:/);
   assert.match(css, /\.pause-overlay\s*\{[^}]*inset:\s*0/s);
   assert.match(css, /\.flight-strip\s*\{[^}]*min-height:\s*49px/s);
+});
+
+test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /const SPAWN_SCHEDULE/);
+  assert.match(simulator, /x:\s*0\.6/);
+  assert.match(simulator, /status:\s*"HOLD_SHORT"/);
+  assert.match(simulator, /flight\.status !== "HOLD_SHORT"/);
+  assert.match(simulator, /departureAltitudeAssigned/);
+  assert.match(simulator, /Assign a departure altitude with C before takeoff/);
+  assert.match(simulator, /while \(cursor < tokens\.length\)/);
+  assert.match(simulator, /\^\\d\{3\}\$/);
+  assert.match(simulator, /\["W", "LW", "LUAW"\]/);
+  assert.match(simulator, /above 3,000 feet AGL/);
+  assert.match(simulator, /heading must be within 60°/);
+  assert.match(simulator, /globalCommand === "SCALE"/);
+  assert.match(simulator, /globalCommand === "STATS"/);
+  assert.match(simulator, /pacific-radar-high-scores/);
+  assert.match(simulator, /setCommand\(`\$\{flight\.callsign\} `\)/);
 });

@@ -125,25 +125,26 @@ Support both concise keyboard commands and full phrase-like commands. Both compi
 
 | Intent | Fast command | Phrase-style example |
 |---|---|---|
-| Heading | `N123AB H 270` | `N123AB TURN LEFT HEADING 270` |
-| Altitude | `N123AB A 3000` | `N123AB DESCEND AND MAINTAIN 3000` |
+| Heading | `N123AB C 270` | `N123AB HEADING 270` |
+| Forced turn | `N123AB C 270 L` | `N123AB TURN LEFT HEADING 270` |
+| Altitude | `N123AB C 3` | `N123AB ALTITUDE 3000` |
+| Expedite altitude | `N123AB C 3 EX` | `N123AB DESCEND 3000 EXPEDITE` |
 | Speed | `N123AB S 170` | `N123AB REDUCE SPEED 170` |
-| Direct fix | `N123AB D PRM` | `N123AB PROCEED DIRECT PRM` |
+| Direct fix | `N123AB C PRM` | `N123AB PROCEED DIRECT PRM` |
 | Taxi | `N123AB TX A H09` | `N123AB TAXI VIA ALPHA HOLD SHORT RUNWAY 09` |
 | Cross runway | `N123AB X 09` | `N123AB CROSS RUNWAY 09` |
-| Line up | `N123AB LUAW 09` | `N123AB RUNWAY 09 LINE UP AND WAIT` |
-| Takeoff | `N123AB TO 09` | `N123AB RUNWAY 09 CLEARED FOR TAKEOFF` |
-| Approach | `N123AB APP RNAV09` | `N123AB CLEARED RNAV RUNWAY 09 APPROACH` |
-| Land | `N123AB LDG 09` | `N123AB RUNWAY 09 CLEARED TO LAND` |
-| Go around | `N123AB GA` | `N123AB GO AROUND` |
-| Hold | `N123AB HOLD PRM` | `N123AB HOLD AT PRM` |
+| Line up | `N123AB W` or `LW` | `N123AB LINE UP AND WAIT` |
+| Takeoff | `N123AB T` | `N123AB CLEARED FOR TAKEOFF` |
+| Land | `N123AB L 21` | `N123AB CLEARED TO LAND RUNWAY 21` |
+| Abort / go around | `N123AB A` | `N123AB ABORT` |
+| Hold | `N123AB H PRM` | `N123AB HOLD AT PRM` |
 
-Important changes from ATC-SIM:
-
-- Do not overload `C` for headings, altitudes, and fixes.
-- Require runway numbers in takeoff, landing, line-up, crossing, and hold-short clearances.
-- Model “line up and wait” as runway entry without takeoff authorization.
-- Separate approach clearance from landing clearance.
+The command model intentionally preserves ATC-SIM shorthand. `C` is
+disambiguated by its argument: exactly three digits means heading, one or two
+digits means thousands of feet, and a named token means a fix. Multiple
+clearances may be chained in one transmission. Departures require an altitude
+assignment before `T`; `W` is optional and models runway entry without takeoff
+authorization.
 - Preserve a command history and allow correction before transmission.
 - Provide contextual autocomplete without automatically selecting unsafe commands.
 

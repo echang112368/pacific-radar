@@ -14,6 +14,7 @@ class AircraftState(StrEnum):
     APPROACH = "approach"
     FINAL = "final"
     GO_AROUND = "go_around"
+    HOLDING = "holding"
     HOLD_SHORT = "hold_short"
     LINE_UP = "line_up"
     TAKEOFF_ROLL = "takeoff_roll"
@@ -46,6 +47,9 @@ class Aircraft:
     target_speed_kt: float | None = None
     landing_cleared: bool = False
     approach_cleared: bool = False
+    departure_altitude_assigned: bool = False
+    requested_fix: str | None = None
+    expedite: bool = False
 
     def __post_init__(self) -> None:
         if self.target_heading_deg is None:
