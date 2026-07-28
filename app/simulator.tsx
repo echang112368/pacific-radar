@@ -1353,6 +1353,17 @@ export function RadarSimulator() {
   }, [paused, simulationSpeed]);
 
   useEffect(() => {
+    const warnAboutLostProgress = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", warnAboutLostProgress);
+    return () =>
+      window.removeEventListener("beforeunload", warnAboutLostProgress);
+  }, []);
+
+  useEffect(() => {
     const focusCommand = (event: KeyboardEvent) => {
       if (
         event.key === "/" &&

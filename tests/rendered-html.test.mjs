@@ -136,6 +136,25 @@ test("offers fixed whole-simulation speed controls in the sidebar footer", async
   assert.match(css, /\.speed-scale/);
 });
 
+test("warns before a refresh would discard shift progress", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /const warnAboutLostProgress = \(event: BeforeUnloadEvent\)/);
+  assert.match(simulator, /event\.preventDefault\(\)/);
+  assert.match(simulator, /event\.returnValue = ""/);
+  assert.match(
+    simulator,
+    /window\.addEventListener\("beforeunload", warnAboutLostProgress\)/,
+  );
+  assert.match(
+    simulator,
+    /window\.removeEventListener\("beforeunload", warnAboutLostProgress\)/,
+  );
+});
+
 test("aligns departures to KSMO Runway 03/21 and uses the full takeoff roll", async () => {
   const [simulator, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
