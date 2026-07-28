@@ -52,13 +52,38 @@ test("includes terminal-scope completion and handoff behavior", async () => {
   ]);
 
   assert.match(simulator, /const EXIT_FIXES/);
-  assert.match(simulator, /Touchdown Runway \$\{next\.runway \?\? "21"\}/);
+  assert.match(simulator, /Touchdown Runway \$\{next\.runway \?\? "21"\}, rolling out/);
   assert.match(simulator, /handed to nearby airspace\./);
   assert.match(simulator, /\["DCT", "DIRECT"\]/);
   assert.match(simulator, /appendGroundTrackSample/);
   assert.match(css, /ksmo-terminal-satellite\.jpg/);
   assert.match(css, /\.history-group \.history-segment/);
   assert.match(css, /\.flight-strip\.departure/);
+});
+
+test("uses stabilized final speeds and a visible braking rollout", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /\| "LANDING_ROLL"/);
+  assert.match(simulator, /finalApproachSpeed:\s*65/);
+  assert.match(simulator, /landingRollFeet:\s*575/);
+  assert.match(simulator, /function landingDecelerationKnotsPerSecond/);
+  assert.match(simulator, /kinematicDecelerationKnotsPerSecond/);
+  assert.match(simulator, /brakingResponse/);
+  assert.match(simulator, /next\.targetSpeed = performanceFor\(next\)\.finalApproachSpeed/);
+  assert.match(simulator, /const approachTravel = Math\.min\(dist, travel\)/);
+  assert.match(simulator, /next\.status = "LANDING_ROLL"/);
+  assert.match(simulator, /next\.landingDistanceFeet = 0/);
+  assert.match(simulator, /next\.landingDistanceFeet \/ RUNWAY\.lengthFeet/);
+  assert.match(simulator, /next\.speed <= 0\.5/);
+  assert.match(simulator, /Clear of Runway \$\{next\.runway \?\? "21"\}/);
+  assert.doesNotMatch(
+    simulator,
+    /next\.status = "LANDED";\s*next\.altitude = 177;\s*next\.targetAltitude = 177;\s*next\.speed = 0/s,
+  );
 });
 
 test("uses timestamped ground-track history with a fading fixed-time trail", async () => {

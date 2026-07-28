@@ -16,6 +16,7 @@ type FlightStatus =
   | "TAKEOFF_READY"
   | "TAKEOFF_ROLL"
   | "DEPARTURE"
+  | "LANDING_ROLL"
   | "LANDED"
   | "HANDOFF";
 
@@ -52,6 +53,8 @@ type Aircraft = {
   departureTurnDirection?: "L" | "R";
   groundSequenceTicks?: number;
   takeoffRollTicks?: number;
+  landingRollTicks?: number;
+  landingDistanceFeet?: number;
   takeoffAfterLineup?: boolean;
   turnDirection?: "L" | "R";
   expedite?: boolean;
@@ -85,6 +88,7 @@ type HighScore = {
 const RUNWAY = {
   designation: "03/21",
   elevation: 177,
+  lengthFeet: 3500,
   ends: {
     "21": {
       heading: 210,
@@ -132,6 +136,8 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: number;
     climbRateFeetPerMinute: number;
     airborneAccelerationKnotsPerSecond: number;
+    finalApproachSpeed: number;
+    landingRollFeet: number;
   }
 > = {
   PA28: {
@@ -140,6 +146,8 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 1135,
     climbRateFeetPerMinute: 667,
     airborneAccelerationKnotsPerSecond: 1,
+    finalApproachSpeed: 66,
+    landingRollFeet: 920,
   },
   C172: {
     rotationSpeed: 55,
@@ -147,6 +155,8 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 960,
     climbRateFeetPerMinute: 730,
     airborneAccelerationKnotsPerSecond: 1,
+    finalApproachSpeed: 65,
+    landingRollFeet: 575,
   },
   PC12: {
     rotationSpeed: 82,
@@ -154,6 +164,8 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 1850,
     climbRateFeetPerMinute: 1920,
     airborneAccelerationKnotsPerSecond: 2,
+    finalApproachSpeed: 85,
+    landingRollFeet: 1830,
   },
   C25A: {
     rotationSpeed: 105,
@@ -161,6 +173,8 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 2900,
     climbRateFeetPerMinute: 3500,
     airborneAccelerationKnotsPerSecond: 2.5,
+    finalApproachSpeed: 105,
+    landingRollFeet: 2200,
   },
   E145: {
     rotationSpeed: 120,
@@ -168,6 +182,8 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 4200,
     climbRateFeetPerMinute: 2500,
     airborneAccelerationKnotsPerSecond: 2.5,
+    finalApproachSpeed: 125,
+    landingRollFeet: 2500,
   },
   E175: {
     rotationSpeed: 125,
@@ -175,6 +191,8 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 4500,
     climbRateFeetPerMinute: 2500,
     airborneAccelerationKnotsPerSecond: 2.5,
+    finalApproachSpeed: 130,
+    landingRollFeet: 2800,
   },
   B738: {
     rotationSpeed: 145,
@@ -182,6 +200,8 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 5200,
     climbRateFeetPerMinute: 3000,
     airborneAccelerationKnotsPerSecond: 2.5,
+    finalApproachSpeed: 140,
+    landingRollFeet: 3000,
   },
 };
 
@@ -456,6 +476,20 @@ function takeoffAccelerationKnotsPerSecond(flight: Aircraft) {
   );
 }
 
+function landingDecelerationKnotsPerSecond(flight: Aircraft) {
+  const performance = performanceFor(flight);
+  const touchdownFeetPerSecond =
+    performance.finalApproachSpeed * KNOT_TO_FEET_PER_SECOND;
+  const kinematicDecelerationKnotsPerSecond =
+    (touchdownFeetPerSecond ** 2 /
+      (2 * performance.landingRollFeet)) /
+    KNOT_TO_FEET_PER_SECOND;
+  const rolloutSeconds =
+    (flight.landingRollTicks ?? 0) / SIMULATION_TICKS_PER_SECOND;
+  const brakingResponse = 0.4 + 0.6 * Math.min(rolloutSeconds / 3, 1);
+  return kinematicDecelerationKnotsPerSecond * 1.35 * brakingResponse;
+}
+
 function turnDegreesPerTick(flight: Aircraft) {
   if (flight.speed < 1) return 0;
   const bankLimit =
@@ -584,7 +618,10 @@ function smoothGroundTrack(points: TrackPoint[]) {
 }
 
 function currentGroundMotion(flight: Aircraft) {
-  if (flight.status === "TAKEOFF_ROLL") {
+  if (
+    flight.status === "TAKEOFF_ROLL" ||
+    flight.status === "LANDING_ROLL"
+  ) {
     const runway = runwayEndFor(flight);
     return {
       groundSpeed: flight.speed,
@@ -627,6 +664,7 @@ function stepWorld(previous: World): World {
       "LINE_UP",
       "TAKEOFF_READY",
       "TAKEOFF_ROLL",
+      "LANDING_ROLL",
     ].includes(next.status);
 
     if (next.status === "HOLDING" && next.holdFix) {
@@ -742,11 +780,12 @@ function stepWorld(previous: World): World {
       const dy = runway.threshold.y - next.y;
       const dist = Math.hypot(dx, dy);
       const travel = groundTravelForKnots(next.speed);
-      next.x += (dx / Math.max(dist, 0.01)) * travel;
-      next.y += (dy / Math.max(dist, 0.01)) * travel;
+      const approachTravel = Math.min(dist, travel);
+      next.x += (dx / Math.max(dist, 0.01)) * approachTravel;
+      next.y += (dy / Math.max(dist, 0.01)) * approachTravel;
       next.targetHeading = runway.heading;
       next.targetAltitude = Math.max(177, Math.min(next.altitude, dist * 115));
-      next.targetSpeed = next.wake === "M" ? 125 : 85;
+      next.targetSpeed = performanceFor(next).finalApproachSpeed;
 
       if (dist < 7) next.status = "FINAL";
       if (dist < 1.2 && !next.landingCleared) {
@@ -760,19 +799,73 @@ function stepWorld(previous: World): World {
           "warning",
           `${next.callsign}: Going around — no landing clearance received.`,
         );
-      } else if (dist < 0.75 && next.landingCleared) {
-        next.status = "LANDED";
+      } else if (
+        next.landingCleared &&
+        dist <= Math.max(travel, 0.04)
+      ) {
+        next.status = "LANDING_ROLL";
+        next.x = runway.threshold.x;
+        next.y = runway.threshold.y;
+        next.heading = runway.heading;
+        next.targetHeading = runway.heading;
         next.altitude = 177;
         next.targetAltitude = 177;
-        next.speed = 0;
         next.targetSpeed = 0;
+        next.landingRollTicks = 0;
+        next.landingDistanceFeet = 0;
+        next.track = [];
+        world = appendEvent(
+          world,
+          "pilot",
+          `${next.callsign}: Touchdown Runway ${next.runway ?? "21"}, rolling out.`,
+        );
+      }
+    }
+
+    if (next.status === "LANDING_ROLL") {
+      const runway = runwayEndFor(next);
+      const previousSpeed = next.speed;
+      next.landingRollTicks = (next.landingRollTicks ?? 0) + 1;
+      next.speed = moveToward(
+        next.speed,
+        0,
+        landingDecelerationKnotsPerSecond(next) /
+          SIMULATION_TICKS_PER_SECOND,
+      );
+      next.targetSpeed = 0;
+      next.altitude = RUNWAY.elevation;
+      next.targetAltitude = RUNWAY.elevation;
+      next.heading = runway.heading;
+      next.targetHeading = runway.heading;
+      const averageSpeed = (previousSpeed + next.speed) / 2;
+      const distanceThisTickFeet =
+        averageSpeed *
+        KNOT_TO_FEET_PER_SECOND /
+        SIMULATION_TICKS_PER_SECOND;
+      next.landingDistanceFeet =
+        (next.landingDistanceFeet ?? 0) + distanceThisTickFeet;
+      const runwayProgress = clamp(
+        next.landingDistanceFeet / RUNWAY.lengthFeet,
+        0,
+        1,
+      );
+      next.x =
+        runway.threshold.x +
+        (runway.rolloutEnd.x - runway.threshold.x) * runwayProgress;
+      next.y =
+        runway.threshold.y +
+        (runway.rolloutEnd.y - runway.threshold.y) * runwayProgress;
+
+      if (next.speed <= 0.5) {
+        next.status = "LANDED";
+        next.speed = 0;
         next.completed = true;
         world.safeOperations += 1;
         world.score += 250;
         world = appendEvent(
           world,
           "success",
-          `${next.callsign}: Touchdown Runway ${next.runway ?? "21"}. Landing complete.`,
+          `${next.callsign}: Clear of Runway ${next.runway ?? "21"}. Landing complete.`,
         );
       }
     }
@@ -876,6 +969,7 @@ function stepWorld(previous: World): World {
         "LINING_UP",
         "LINE_UP",
         "TAKEOFF_READY",
+        "LANDING_ROLL",
         "LANDED",
       ].includes(next.status)
     ) {
@@ -925,6 +1019,7 @@ function stepWorld(previous: World): World {
         "LINE_UP",
         "TAKEOFF_READY",
         "TAKEOFF_ROLL",
+        "LANDING_ROLL",
         "LANDED",
       ].includes(flight.status),
   );
@@ -1199,6 +1294,7 @@ function executeCommand(
             "LINE_UP",
             "TAKEOFF_READY",
             "TAKEOFF_ROLL",
+            "LANDING_ROLL",
             "LANDED",
           ].includes(other.status),
       );
@@ -1255,6 +1351,7 @@ function executeCommand(
             "LINE_UP",
             "TAKEOFF_READY",
             "TAKEOFF_ROLL",
+            "LANDING_ROLL",
             "LANDED",
           ].includes(other.status),
       );
@@ -1304,6 +1401,7 @@ function executeCommand(
             "LINE_UP",
             "TAKEOFF_READY",
             "TAKEOFF_ROLL",
+            "LANDING_ROLL",
             "LANDED",
           ].includes(other.status),
       );
@@ -1552,6 +1650,7 @@ export function RadarSimulator() {
           "LINE_UP",
           "TAKEOFF_READY",
           "TAKEOFF_ROLL",
+          "LANDING_ROLL",
           "LANDED",
         ].includes(flight.status),
     );

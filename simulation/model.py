@@ -21,6 +21,7 @@ class AircraftState(StrEnum):
     TAKEOFF_READY = "takeoff_ready"
     TAKEOFF_ROLL = "takeoff_roll"
     DEPARTURE = "departure"
+    LANDING_ROLL = "landing_roll"
     LANDED = "landed"
     HANDOFF = "handoff"
 
@@ -64,6 +65,9 @@ class Aircraft:
     climb_rate_fpm: float = 730
     airborne_acceleration_kt_per_second: float = 1
     takeoff_roll_seconds: float = 0
+    final_approach_speed_kt: float = 65
+    landing_roll_ft: float = 575
+    landing_roll_seconds: float = 0
     landing_cleared: bool = False
     approach_cleared: bool = False
     departure_altitude_assigned: bool = False

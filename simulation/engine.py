@@ -44,6 +44,19 @@ def takeoff_acceleration_knots_per_second(aircraft: Aircraft) -> float:
     )
 
 
+def landing_deceleration_knots_per_second(aircraft: Aircraft) -> float:
+    touchdown_feet_per_second = (
+        aircraft.final_approach_speed_kt * KNOT_TO_FEET_PER_SECOND
+    )
+    kinematic_deceleration = (
+        touchdown_feet_per_second**2
+        / (2 * aircraft.landing_roll_ft)
+        / KNOT_TO_FEET_PER_SECOND
+    )
+    braking_response = 0.4 + 0.6 * min(aircraft.landing_roll_seconds / 3, 1)
+    return kinematic_deceleration * 1.35 * braking_response
+
+
 @dataclass(slots=True)
 class Simulation:
     runway: Runway
@@ -58,6 +71,7 @@ class Simulation:
             AircraftState.LINE_UP,
             AircraftState.TAKEOFF_READY,
             AircraftState.TAKEOFF_ROLL,
+            AircraftState.LANDING_ROLL,
             AircraftState.LANDED,
         }
         return next(
@@ -213,6 +227,7 @@ class Simulation:
                             AircraftState.LINING_UP,
                             AircraftState.TAKEOFF_READY,
                             AircraftState.TAKEOFF_ROLL,
+                            AircraftState.LANDING_ROLL,
                             AircraftState.LANDED,
                         }
                     ),
@@ -362,6 +377,27 @@ class Simulation:
                 aircraft.takeoff_roll_seconds = 0
             return
 
+        if aircraft.state is AircraftState.LANDING_ROLL:
+            previous_speed = aircraft.speed_kt
+            aircraft.landing_roll_seconds += self.tick_seconds
+            aircraft.speed_kt = self._move(
+                aircraft.speed_kt,
+                0,
+                amount=landing_deceleration_knots_per_second(aircraft)
+                * self.tick_seconds,
+            )
+            aircraft.target_speed_kt = 0
+            aircraft.altitude_ft = self.runway.elevation_ft
+            average_speed = (previous_speed + aircraft.speed_kt) / 2
+            distance_nm = average_speed / 3600 * self.tick_seconds
+            heading = radians(aircraft.heading_deg)
+            aircraft.x_nm += sin(heading) * distance_nm
+            aircraft.y_nm += cos(heading) * distance_nm
+            if aircraft.speed_kt <= 0.5:
+                aircraft.speed_kt = 0
+                aircraft.state = AircraftState.LANDED
+            return
+
         if aircraft.state in {
             AircraftState.HOLD_SHORT,
             AircraftState.LINE_UP,
@@ -426,6 +462,7 @@ class Simulation:
                 AircraftState.LINE_UP,
                 AircraftState.TAKEOFF_READY,
                 AircraftState.TAKEOFF_ROLL,
+                AircraftState.LANDING_ROLL,
                 AircraftState.LANDED,
                 AircraftState.HANDOFF,
             }

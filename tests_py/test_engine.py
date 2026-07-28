@@ -3,6 +3,7 @@ import unittest
 from simulation import Aircraft, AircraftState, FlightKind, Runway, Simulation
 from simulation.engine import (
     coordinated_turn_rate_degrees_per_second,
+    landing_deceleration_knots_per_second,
     takeoff_acceleration_knots_per_second,
 )
 
@@ -28,6 +29,8 @@ def make_simulation() -> Simulation:
                 altitude_ft=2600,
                 speed_kt=115,
                 max_bank_deg=30,
+                final_approach_speed_kt=65,
+                landing_roll_ft=575,
             ),
             "N4382K": Aircraft(
                 callsign="N4382K",
@@ -69,6 +72,30 @@ class SimulationTests(unittest.TestCase):
         self.assertGreater(initial_acceleration, 1.5)
         self.assertLess(initial_acceleration, 3)
         self.assertLess(later_acceleration, initial_acceleration)
+
+    def test_landing_brakes_build_gradually_and_roll_to_a_stop(self) -> None:
+        simulation = make_simulation()
+        arrival = simulation.aircraft["N172SP"]
+        arrival.state = AircraftState.LANDING_ROLL
+        arrival.altitude_ft = simulation.runway.elevation_ft
+        arrival.speed_kt = arrival.final_approach_speed_kt
+        arrival.target_speed_kt = 0
+        initial_deceleration = landing_deceleration_knots_per_second(arrival)
+
+        simulation.step()
+        self.assertIs(arrival.state, AircraftState.LANDING_ROLL)
+        self.assertGreater(arrival.speed_kt, 0)
+        self.assertLess(arrival.speed_kt, arrival.final_approach_speed_kt)
+        self.assertNotEqual(arrival.x_nm, 8)
+        arrival.landing_roll_seconds = 3
+        self.assertGreater(
+            landing_deceleration_knots_per_second(arrival),
+            initial_deceleration,
+        )
+
+        simulation.step(20)
+        self.assertIs(arrival.state, AircraftState.LANDED)
+        self.assertEqual(arrival.speed_kt, 0)
 
     def test_landing_requires_three_thousand_agl_and_runway_heading(self) -> None:
         simulation = make_simulation()
