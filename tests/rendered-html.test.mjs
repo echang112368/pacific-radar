@@ -427,9 +427,9 @@ test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async 
 
   assert.match(simulator, /const SPAWN_SCHEDULE/);
   assert.match(simulator, /aircraft:\s*\[\]/);
-  assert.match(simulator, /tick:\s*48/);
-  assert.match(simulator, /tick:\s*160/);
-  assert.match(simulator, /tick:\s*832/);
+  assert.match(simulator, /tick:\s*80/);
+  assert.match(simulator, /tick:\s*320/);
+  assert.match(simulator, /tick:\s*1280/);
   assert.match(simulator, /x:\s*0\.6/);
   assert.match(simulator, /status:\s*"HOLD_SHORT"/);
   assert.match(
@@ -454,19 +454,38 @@ test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async 
   assert.match(simulator, /setCommand\(`\$\{flight\.callsign\} `\)/);
 });
 
-test("continuously generates a balanced, progressively faster traffic flow", async () => {
+test("scales balanced traffic to KSMO's single-runway capacity", async () => {
   const simulator = await readFile(
     new URL("../app/simulator.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(simulator, /CONTINUOUS_TRAFFIC_START_TICK = 920/);
-  assert.match(simulator, /INITIAL_TRAFFIC_INTERVAL_TICKS = 28 \* SIMULATION_TICKS_PER_SECOND/);
-  assert.match(simulator, /MINIMUM_TRAFFIC_INTERVAL_TICKS = 12 \* SIMULATION_TICKS_PER_SECOND/);
+  assert.match(simulator, /type AirportTrafficProfile/);
+  assert.match(simulator, /function trafficSpacingForRunways/);
+  assert.match(simulator, /airport:\s*"KSMO"/);
+  assert.match(simulator, /runwayCount:\s*1/);
+  assert.match(simulator, /initialSpacingSeconds:\s*Math\.round\(60 \/ capacityScale\)/);
+  assert.match(simulator, /minimumSpacingSeconds:\s*Math\.round\(36 \/ capacityScale\)/);
+  assert.match(
+    simulator,
+    /CONTINUOUS_TRAFFIC_START_TICK =\s*380 \* SIMULATION_TICKS_PER_SECOND/,
+  );
+  assert.match(
+    simulator,
+    /INITIAL_TRAFFIC_INTERVAL_TICKS =\s*SMO_TRAFFIC_PROFILE\.initialSpacingSeconds \*\s*SIMULATION_TICKS_PER_SECOND/,
+  );
+  assert.match(
+    simulator,
+    /MINIMUM_TRAFFIC_INTERVAL_TICKS =\s*SMO_TRAFFIC_PROFILE\.minimumSpacingSeconds \*\s*SIMULATION_TICKS_PER_SECOND/,
+  );
   assert.match(simulator, /function continuousTrafficIntervalTicks/);
   assert.match(
     simulator,
-    /INITIAL_TRAFFIC_INTERVAL_TICKS - sequence \* 3/,
+    /sequence \/ SMO_TRAFFIC_PROFILE\.rampEveryMovements/,
+  );
+  assert.match(
+    simulator,
+    /SMO_TRAFFIC_PROFILE\.spacingReductionSeconds/,
   );
   assert.match(simulator, /function createContinuousTraffic/);
   assert.match(

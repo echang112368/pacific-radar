@@ -106,6 +106,32 @@ type HighScore = {
   elapsed: string;
 };
 
+type AirportTrafficProfile = {
+  airport: string;
+  runwayCount: number;
+  initialSpacingSeconds: number;
+  minimumSpacingSeconds: number;
+  rampEveryMovements: number;
+  spacingReductionSeconds: number;
+};
+
+function trafficSpacingForRunways(runwayCount: number) {
+  const capacityScale = Math.sqrt(Math.max(1, runwayCount));
+
+  return {
+    initialSpacingSeconds: Math.round(60 / capacityScale),
+    minimumSpacingSeconds: Math.round(36 / capacityScale),
+  };
+}
+
+const SMO_TRAFFIC_PROFILE: AirportTrafficProfile = {
+  airport: "KSMO",
+  runwayCount: 1,
+  ...trafficSpacingForRunways(1),
+  rampEveryMovements: 6,
+  spacingReductionSeconds: 3,
+};
+
 const RUNWAY = {
   designation: "03/21",
   elevation: 177,
@@ -137,9 +163,14 @@ const INCORRECT_HANDOFF_LIMIT = 3;
 const INCORRECT_HANDOFF_PENALTY = 200;
 const MAX_CATCH_UP_TICKS_PER_PASS =
   SIMULATION_TICKS_PER_SECOND * 60;
-const CONTINUOUS_TRAFFIC_START_TICK = 920;
-const INITIAL_TRAFFIC_INTERVAL_TICKS = 28 * SIMULATION_TICKS_PER_SECOND;
-const MINIMUM_TRAFFIC_INTERVAL_TICKS = 12 * SIMULATION_TICKS_PER_SECOND;
+const CONTINUOUS_TRAFFIC_START_TICK =
+  380 * SIMULATION_TICKS_PER_SECOND;
+const INITIAL_TRAFFIC_INTERVAL_TICKS =
+  SMO_TRAFFIC_PROFILE.initialSpacingSeconds *
+  SIMULATION_TICKS_PER_SECOND;
+const MINIMUM_TRAFFIC_INTERVAL_TICKS =
+  SMO_TRAFFIC_PROFILE.minimumSpacingSeconds *
+  SIMULATION_TICKS_PER_SECOND;
 const TRACK_SAMPLE_SECONDS = 1;
 const TRACK_HISTORY_SECONDS = 15;
 const TRACK_SAMPLE_TICKS =
@@ -284,7 +315,7 @@ const EXIT_FIXES = [
 
 const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
   {
-    tick: 48,
+    tick: 80,
     aircraft: {
       callsign: "N4382K",
       type: "PA28",
@@ -306,7 +337,7 @@ const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
     },
   },
   {
-    tick: 160,
+    tick: 320,
     aircraft: {
       callsign: "N172SP",
       type: "C172",
@@ -326,7 +357,7 @@ const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
     },
   },
   {
-    tick: 288,
+    tick: 800,
     aircraft: {
       callsign: "JSX422",
       type: "E145",
@@ -346,7 +377,7 @@ const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
     },
   },
   {
-    tick: 416,
+    tick: 560,
     aircraft: {
       callsign: "SURF52",
       type: "PC12",
@@ -368,7 +399,7 @@ const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
     },
   },
   {
-    tick: 532,
+    tick: 1280,
     aircraft: {
       callsign: "N91GX",
       type: "C25A",
@@ -388,27 +419,7 @@ const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
     },
   },
   {
-    tick: 640,
-    aircraft: {
-      callsign: "UAL918",
-      type: "B738",
-      wake: "M",
-      kind: "arrival",
-      status: "INBOUND",
-      runway: "03",
-      x: 0.6,
-      y: 34,
-      heading: 96,
-      targetHeading: 96,
-      altitude: 5400,
-      targetAltitude: 5400,
-      speed: 210,
-      targetSpeed: 210,
-      track: [],
-    },
-  },
-  {
-    tick: 740,
+    tick: 1040,
     aircraft: {
       callsign: "N225SM",
       type: "C172",
@@ -426,26 +437,6 @@ const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
       targetSpeed: 0,
       exitFix: "HOLTZ",
       departureAltitudeAssigned: false,
-      track: [],
-    },
-  },
-  {
-    tick: 832,
-    aircraft: {
-      callsign: "SKW603",
-      type: "E175",
-      wake: "M",
-      kind: "arrival",
-      status: "INBOUND",
-      runway: "03",
-      x: 99.4,
-      y: 53,
-      heading: 276,
-      targetHeading: 276,
-      altitude: 6800,
-      targetAltitude: 6800,
-      speed: 220,
-      targetSpeed: 220,
       track: [],
     },
   },
@@ -472,10 +463,16 @@ const ENTRY_SPEEDS: Record<string, number> = {
 };
 
 function continuousTrafficIntervalTicks(sequence: number) {
-  return Math.max(
-    MINIMUM_TRAFFIC_INTERVAL_TICKS,
-    INITIAL_TRAFFIC_INTERVAL_TICKS - sequence * 3,
+  const reductionSteps = Math.floor(
+    sequence / SMO_TRAFFIC_PROFILE.rampEveryMovements,
   );
+  const interval =
+    INITIAL_TRAFFIC_INTERVAL_TICKS -
+    reductionSteps *
+      SMO_TRAFFIC_PROFILE.spacingReductionSeconds *
+      SIMULATION_TICKS_PER_SECOND;
+
+  return Math.max(MINIMUM_TRAFFIC_INTERVAL_TICKS, interval);
 }
 
 function continuousCallsign(sequence: number) {
