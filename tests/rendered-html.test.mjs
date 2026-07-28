@@ -215,6 +215,10 @@ test("stages lineup, takeoff power, and progressive runway acceleration", async 
   assert.match(simulator, /next\.status = "TAKEOFF_ROLL"/);
   assert.match(
     simulator,
+    /!\["HOLD_SHORT", "LINING_UP"\]\.includes\(flight\.status\)/,
+  );
+  assert.match(
+    simulator,
     /next\.speed = moveToward\(\s*next\.speed,\s*78,\s*TAKEOFF_ACCELERATION_PER_TICK/s,
   );
   assert.doesNotMatch(simulator, /flight\.status = "TAKEOFF_ROLL"/);
@@ -259,7 +263,10 @@ test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async 
   assert.match(simulator, /tick:\s*832/);
   assert.match(simulator, /x:\s*0\.6/);
   assert.match(simulator, /status:\s*"HOLD_SHORT"/);
-  assert.match(simulator, /flight\.status !== "HOLD_SHORT"/);
+  assert.match(
+    simulator,
+    /!\["HOLD_SHORT", "LINING_UP"\]\.includes\(flight\.status\)/,
+  );
   assert.match(simulator, /departureAltitudeAssigned/);
   assert.match(simulator, /Assign a departure altitude with C before takeoff/);
   assert.match(simulator, /while \(cursor < tokens\.length\)/);

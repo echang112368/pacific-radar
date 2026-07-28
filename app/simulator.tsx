@@ -1380,7 +1380,10 @@ export function RadarSimulator() {
   );
   const radarAircraft = useMemo(
     () =>
-      visibleAircraft.filter((flight) => flight.status !== "HOLD_SHORT"),
+      visibleAircraft.filter(
+        (flight) =>
+          !["HOLD_SHORT", "LINING_UP"].includes(flight.status),
+      ),
     [visibleAircraft],
   );
 
