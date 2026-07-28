@@ -188,7 +188,10 @@ test("offers fixed whole-simulation speed controls in the sidebar footer", async
     simulator,
     /SIMULATION_TICKS_PER_SECOND \*\s*simulationSpeed/s,
   );
-  assert.match(simulator, /\[paused, simulationSpeed\]/);
+  assert.match(
+    simulator,
+    /\[paused, simulationSpeed, simulationFailed\]/,
+  );
   assert.match(simulator, /aria-label="Simulation speed"/);
   assert.match(simulator, /Real life speed/);
   assert.doesNotMatch(simulator, /Reset seed 0321/);
@@ -229,6 +232,35 @@ test("reconciles elapsed wall time after browser background throttling", async (
     simulator,
     /setInterval\(\(\) => \{\s*setWorld\(\(current\) => stepWorld\(current\)\)/s,
   );
+});
+
+test("stops the shift and explains the final score after a collision", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /type SimulationFailure/);
+  assert.match(simulator, /COLLISION_LATERAL_NM = 0\.1/);
+  assert.match(simulator, /COLLISION_VERTICAL_FEET = 200/);
+  assert.match(simulator, /if \(previous\.failure\) return previous/);
+  assert.match(
+    simulator,
+    /lateral <= COLLISION_LATERAL_NM &&\s*vertical <= COLLISION_VERTICAL_FEET/s,
+  );
+  assert.match(simulator, /kind: "collision"/);
+  assert.match(simulator, /finalScore/);
+  assert.match(simulator, /COLLISION · \$\{airborne\[i\]\.callsign\}/);
+  assert.match(simulator, /const simulationFailed = Boolean\(world\.failure\)/);
+  assert.match(simulator, /if \(paused \|\| simulationFailed\)/);
+  assert.match(simulator, /role="alertdialog"/);
+  assert.match(simulator, /Aircraft collision/);
+  assert.match(simulator, /The simulation has been stopped/);
+  assert.match(simulator, /Final score/);
+  assert.match(simulator, /Start new shift/);
+  assert.match(css, /\.failure-modal/);
+  assert.match(css, /\.failure-summary/);
+  assert.match(css, /\.failure-restart/);
 });
 
 test("warns before a refresh would discard shift progress", async () => {

@@ -69,6 +69,15 @@ type EventItem = {
   message: string;
 };
 
+type SimulationFailure = {
+  kind: "collision";
+  flights: [string, string];
+  lateralSeparationNm: number;
+  verticalSeparationFeet: number;
+  finalScore: number;
+  tick: number;
+};
+
 type World = {
   tick: number;
   trafficSequence: number;
@@ -79,6 +88,7 @@ type World = {
   runwayIncursions: number;
   aircraft: Aircraft[];
   events: EventItem[];
+  failure?: SimulationFailure;
 };
 
 type HighScore = {
@@ -108,6 +118,9 @@ const RUNWAY = {
 };
 
 const SIMULATION_TICKS_PER_SECOND = 4;
+const COLLISION_LATERAL_NM = 0.1;
+const COLLISION_VERTICAL_FEET = 200;
+const COLLISION_SCORE_PENALTY = 1000;
 const MAX_CATCH_UP_TICKS_PER_PASS =
   SIMULATION_TICKS_PER_SECOND * 60;
 const CONTINUOUS_TRAFFIC_START_TICK = 920;
@@ -758,6 +771,7 @@ function hasPassedRunwayDepartureEnd(flight: Aircraft) {
 }
 
 function stepWorld(previous: World): World {
+  if (previous.failure) return previous;
   let world: World = { ...previous, tick: previous.tick + 1 };
   const stepped = previous.aircraft.map((flight) => {
     if (flight.completed || flight.status === "HANDOFF") return flight;
@@ -1153,6 +1167,42 @@ function stepWorld(previous: World): World {
       ].includes(flight.status),
   );
 
+  for (let i = 0; i < airborne.length; i += 1) {
+    for (let j = i + 1; j < airborne.length; j += 1) {
+      const lateral = distance(airborne[i], airborne[j]);
+      const vertical = Math.abs(
+        airborne[i].altitude - airborne[j].altitude,
+      );
+      if (
+        lateral <= COLLISION_LATERAL_NM &&
+        vertical <= COLLISION_VERTICAL_FEET
+      ) {
+        const finalScore = Math.max(
+          0,
+          world.score - COLLISION_SCORE_PENALTY,
+        );
+        world = {
+          ...world,
+          score: finalScore,
+          separationLosses: world.separationLosses + 1,
+          failure: {
+            kind: "collision",
+            flights: [airborne[i].callsign, airborne[j].callsign],
+            lateralSeparationNm: lateral,
+            verticalSeparationFeet: vertical,
+            finalScore,
+            tick: world.tick,
+          },
+        };
+        return appendEvent(
+          world,
+          "warning",
+          `COLLISION · ${airborne[i].callsign} / ${airborne[j].callsign} · Shift failed.`,
+        );
+      }
+    }
+  }
+
   if (previous.tick % 24 === 0) {
     for (let i = 0; i < airborne.length; i += 1) {
       for (let j = i + 1; j < airborne.length; j += 1) {
@@ -1180,6 +1230,7 @@ function advanceWorldByTicks(previous: World, ticks: number) {
   let advanced = previous;
   for (let tick = 0; tick < ticks; tick += 1) {
     advanced = stepWorld(advanced);
+    if (advanced.failure) break;
   }
   return advanced;
 }
@@ -1719,9 +1770,10 @@ export function RadarSimulator() {
   const lastSimulationUpdateRef = useRef<number | null>(null);
   const pendingSimulationTicksRef = useRef(0);
   const simulationSpeed = SIMULATION_SPEEDS[speedIndex];
+  const simulationFailed = Boolean(world.failure);
 
   useEffect(() => {
-    if (paused) {
+    if (paused || simulationFailed) {
       lastSimulationUpdateRef.current = null;
       pendingSimulationTicksRef.current = 0;
       return;
@@ -1757,7 +1809,7 @@ export function RadarSimulator() {
       document.removeEventListener("visibilitychange", advanceToWallClock);
       window.removeEventListener("focus", advanceToWallClock);
     };
-  }, [paused, simulationSpeed]);
+  }, [paused, simulationSpeed, simulationFailed]);
 
   useEffect(() => {
     const warnAboutLostProgress = (event: BeforeUnloadEvent) => {
@@ -2533,6 +2585,58 @@ export function RadarSimulator() {
               onClick={shiftComplete ? reset : () => setShowStats(false)}
             >
               {shiftComplete ? "Start new shift" : "Return to scope"}
+            </button>
+          </section>
+        </div>
+      )}
+
+      {world.failure && (
+        <div className="modal-backdrop failure-backdrop" role="presentation">
+          <section
+            className="command-modal failure-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="failure-title"
+            aria-describedby="failure-explanation"
+          >
+            <div className="failure-symbol" aria-hidden="true">
+              !
+            </div>
+            <p className="eyebrow">SHIFT FAILED</p>
+            <h2 id="failure-title">Aircraft collision</h2>
+            <p className="failure-flights">
+              {world.failure.flights[0]} / {world.failure.flights[1]}
+            </p>
+            <p id="failure-explanation" className="failure-explanation">
+              The aircraft entered the collision envelope after required
+              separation was lost. Their final spacing was{" "}
+              <strong>
+                {world.failure.lateralSeparationNm.toFixed(2)} NM
+              </strong>{" "}
+              laterally and{" "}
+              <strong>
+                {Math.round(world.failure.verticalSeparationFeet)} feet
+              </strong>{" "}
+              vertically. The simulation has been stopped.
+            </p>
+            <div className="failure-summary">
+              <div>
+                <span>Failure</span>
+                <strong>Collision</strong>
+              </div>
+              <div>
+                <span>Final score</span>
+                <strong>
+                  {world.failure.finalScore.toLocaleString()}
+                </strong>
+              </div>
+              <div>
+                <span>Safe operations</span>
+                <strong>{world.safeOperations}</strong>
+              </div>
+            </div>
+            <button className="failure-restart" onClick={reset}>
+              Start new shift
             </button>
           </section>
         </div>

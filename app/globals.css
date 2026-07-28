@@ -1253,6 +1253,107 @@ h2 {
   width: min(560px, 100%);
 }
 
+.failure-backdrop {
+  background: rgba(12, 3, 3, 0.84);
+}
+
+.failure-modal {
+  width: min(520px, 100%);
+  border-color: rgba(255, 105, 92, 0.72);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 92, 79, 0.13), transparent 42%),
+    #1a0e0d;
+  text-align: center;
+}
+
+.failure-symbol {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 16px;
+  place-items: center;
+  border: 1px solid #ff695c;
+  border-radius: 50%;
+  color: #ff8e83;
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.failure-modal .eyebrow {
+  color: #ff8e83;
+}
+
+.failure-modal h2 {
+  margin-top: 5px;
+  color: #fff0ed;
+  font-size: 27px;
+}
+
+.failure-flights {
+  margin: 12px 0 0;
+  color: #ffb2aa;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.failure-explanation {
+  margin: 18px auto;
+  color: #d8bfbb;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.failure-explanation strong {
+  color: #fff0ed;
+  font-family: var(--mono);
+}
+
+.failure-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 20px 0;
+  border-top: 1px solid rgba(255, 105, 92, 0.25);
+  border-left: 1px solid rgba(255, 105, 92, 0.25);
+}
+
+.failure-summary > div {
+  padding: 14px 8px;
+  border-right: 1px solid rgba(255, 105, 92, 0.25);
+  border-bottom: 1px solid rgba(255, 105, 92, 0.25);
+}
+
+.failure-summary span,
+.failure-summary strong {
+  display: block;
+  font-family: var(--mono);
+}
+
+.failure-summary span {
+  color: #9e7772;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.failure-summary strong {
+  margin-top: 7px;
+  color: #fff0ed;
+  font-size: 14px;
+}
+
+.failure-restart {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #ff695c;
+  background: #ff695c;
+  color: #1a0e0d;
+  cursor: pointer;
+  font-weight: 800;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
