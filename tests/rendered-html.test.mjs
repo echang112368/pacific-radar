@@ -351,6 +351,35 @@ test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async 
   assert.match(simulator, /setCommand\(`\$\{flight\.callsign\} `\)/);
 });
 
+test("continuously generates a balanced, progressively faster traffic flow", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /CONTINUOUS_TRAFFIC_START_TICK = 920/);
+  assert.match(simulator, /INITIAL_TRAFFIC_INTERVAL_TICKS = 28 \* SIMULATION_TICKS_PER_SECOND/);
+  assert.match(simulator, /MINIMUM_TRAFFIC_INTERVAL_TICKS = 12 \* SIMULATION_TICKS_PER_SECOND/);
+  assert.match(simulator, /function continuousTrafficIntervalTicks/);
+  assert.match(
+    simulator,
+    /INITIAL_TRAFFIC_INTERVAL_TICKS - sequence \* 3/,
+  );
+  assert.match(simulator, /function createContinuousTraffic/);
+  assert.match(
+    simulator,
+    /sequence % 2 === 0 \? "departure" : "arrival"/,
+  );
+  assert.match(simulator, /if \(world\.tick >= world\.nextTrafficTick\)/);
+  assert.match(simulator, /trafficSequence: world\.trafficSequence \+ 1/);
+  assert.match(simulator, /continuousTrafficIntervalTicks\(world\.trafficSequence \+ 1\)/);
+  assert.match(simulator, /stepped\.filter\(\(flight\) => !flight\.completed\)/);
+  assert.doesNotMatch(
+    simulator,
+    /world\.aircraft\.length\s*[<>=]+\s*\d+[^}]*createContinuousTraffic/s,
+  );
+});
+
 test("keeps the clearance console in the sidebar and gives the radar full height", async () => {
   const [simulator, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
