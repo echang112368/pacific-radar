@@ -5,11 +5,10 @@ from math import cos, degrees, hypot, radians, sin, tan
 
 from .model import Aircraft, AircraftState, FlightKind, Runway, SimulationEvent
 
-AIRBORNE_SPEED_CHANGE_KT_PER_SECOND = 2
-TAKEOFF_ACCELERATION_KT_PER_SECOND = 5
 LINE_UP_SECONDS = 3
 TAKEOFF_POWER_SECONDS = 1
 STANDARD_RATE_TURN_DEGREES_PER_SECOND = 3
+KNOT_TO_FEET_PER_SECOND = 1.68781
 
 
 def coordinated_turn_rate_degrees_per_second(
@@ -21,6 +20,28 @@ def coordinated_turn_rate_degrees_per_second(
         32.174 * tan(radians(max_bank_deg)) / (speed_kt * 1.68781)
     )
     return min(STANDARD_RATE_TURN_DEGREES_PER_SECOND, coordinated_rate)
+
+
+def takeoff_acceleration_knots_per_second(aircraft: Aircraft) -> float:
+    rotation_feet_per_second = (
+        aircraft.rotation_speed_kt * KNOT_TO_FEET_PER_SECOND
+    )
+    kinematic_acceleration = (
+        rotation_feet_per_second**2
+        / (2 * aircraft.takeoff_ground_roll_ft)
+        / KNOT_TO_FEET_PER_SECOND
+    )
+    throttle_response = 0.72 + 0.28 * min(aircraft.takeoff_roll_seconds / 3, 1)
+    speed_ratio = min(
+        max(aircraft.speed_kt / aircraft.rotation_speed_kt, 0), 1
+    )
+    aerodynamic_taper = 1 - 0.12 * speed_ratio**2
+    return (
+        kinematic_acceleration
+        * 1.12
+        * throttle_response
+        * aerodynamic_taper
+    )
 
 
 @dataclass(slots=True)
@@ -337,7 +358,8 @@ class Simulation:
             aircraft.speed_kt = 0
             if aircraft.ground_sequence_seconds == 0:
                 aircraft.state = AircraftState.TAKEOFF_ROLL
-                aircraft.target_speed_kt = 80
+                aircraft.target_speed_kt = aircraft.rotation_speed_kt
+                aircraft.takeoff_roll_seconds = 0
             return
 
         if aircraft.state in {
@@ -360,7 +382,8 @@ class Simulation:
             aircraft.altitude_ft = self._move(
                 aircraft.altitude_ft,
                 aircraft.target_altitude_ft or aircraft.altitude_ft,
-                amount=(1_000 if aircraft.expedite else 500)
+                amount=aircraft.climb_rate_fpm
+                * (1.8 if aircraft.expedite else 1)
                 / 60
                 * self.tick_seconds,
             )
@@ -370,20 +393,26 @@ class Simulation:
             aircraft.speed_kt,
             aircraft.target_speed_kt or aircraft.speed_kt,
             amount=(
-                TAKEOFF_ACCELERATION_KT_PER_SECOND
+                takeoff_acceleration_knots_per_second(aircraft)
                 if aircraft.state is AircraftState.TAKEOFF_ROLL
-                else AIRBORNE_SPEED_CHANGE_KT_PER_SECOND
+                else aircraft.airborne_acceleration_kt_per_second
             )
             * self.tick_seconds,
         )
+        if aircraft.state is AircraftState.TAKEOFF_ROLL:
+            aircraft.takeoff_roll_seconds += self.tick_seconds
 
         distance_nm = aircraft.speed_kt / 3600 * self.tick_seconds
         heading = radians(aircraft.heading_deg)
         aircraft.x_nm += sin(heading) * distance_nm
         aircraft.y_nm += cos(heading) * distance_nm
 
-        if aircraft.state is AircraftState.TAKEOFF_ROLL and aircraft.speed_kt >= 72:
+        if (
+            aircraft.state is AircraftState.TAKEOFF_ROLL
+            and aircraft.speed_kt >= aircraft.rotation_speed_kt
+        ):
             aircraft.state = AircraftState.DEPARTURE
+            aircraft.target_speed_kt = aircraft.initial_climb_speed_kt
             aircraft.target_altitude_ft = max(aircraft.target_altitude_ft or 0, 2_500)
 
     def _detect_separation(self) -> None:

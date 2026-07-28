@@ -97,7 +97,7 @@ test("maps displayed ground speed linearly to real-time screen movement", async 
     simulator,
     /nauticalMilesPerTick = speedKnots \* elapsedHoursPerTick/,
   );
-  assert.match(simulator, /AIRBORNE_SPEED_CHANGE_PER_TICK = 0\.5/);
+  assert.match(simulator, /airborneAccelerationKnotsPerSecond/);
   assert.match(simulator, /function groundTravelForKnots/);
   assert.match(simulator, /groundTravelForKnots\(next\.speed\)/);
   assert.match(simulator, /groundSpeed = \(distanceNm \* 3600\) \/ elapsedSeconds/);
@@ -191,7 +191,7 @@ test("warns before a refresh would discard shift progress", async () => {
   );
 });
 
-test("aligns departures to KSMO Runway 03/21 and uses the full takeoff roll", async () => {
+test("aligns departures to KSMO Runway 03/21 and uses the full runway before vectoring", async () => {
   const [simulator, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -204,9 +204,14 @@ test("aligns departures to KSMO Runway 03/21 and uses the full takeoff roll", as
   assert.match(simulator, /runway:\s*"03"/);
   assert.match(simulator, /const travel = groundTravelForKnots\(next\.speed\)/);
   assert.doesNotMatch(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE/);
-  assert.match(simulator, /if \(dist <= travel\)/);
-  assert.match(simulator, /next\.x = runway\.rolloutEnd\.x/);
-  assert.match(simulator, /next\.status = "DEPARTURE"/);
+  assert.match(simulator, /function hasPassedRunwayDepartureEnd/);
+  assert.match(simulator, /return runwayProgress >= 1/);
+  assert.match(simulator, /const clearOfRunway = hasPassedRunwayDepartureEnd\(next\)/);
+  assert.match(
+    simulator,
+    /next\.altitude >= RUNWAY\.elevation \+ 400 &&\s*clearOfRunway/s,
+  );
+  assert.match(simulator, /next\.targetHeading = runwayEndFor\(next\)\.heading/);
   assert.doesNotMatch(simulator, /next\.speed >= 72 \|\| dist < 2/);
   assert.match(simulator, /className="runway-layer"/);
   assert.match(simulator, /normalizeRunwayEnd/);
@@ -236,7 +241,13 @@ test("stages lineup, takeoff power, and progressive runway acceleration", async 
     simulator,
     /TAKEOFF_POWER_TICKS = SIMULATION_TICKS_PER_SECOND/,
   );
-  assert.match(simulator, /TAKEOFF_ACCELERATION_PER_TICK = 1\.8/);
+  assert.match(simulator, /takeoffGroundRollFeet:\s*960/);
+  assert.match(simulator, /rotationSpeed:\s*55/);
+  assert.match(simulator, /rotationSpeed:\s*82/);
+  assert.match(simulator, /climbRateFeetPerMinute:\s*1920/);
+  assert.match(simulator, /function takeoffAccelerationKnotsPerSecond/);
+  assert.match(simulator, /kinematicAccelerationKnotsPerSecond/);
+  assert.match(simulator, /aerodynamicTaper/);
   assert.match(simulator, /flight\.status = "LINING_UP"/);
   assert.match(simulator, /next\.status = "TAKEOFF_READY"/);
   assert.match(simulator, /next\.status = "TAKEOFF_ROLL"/);
@@ -246,8 +257,11 @@ test("stages lineup, takeoff power, and progressive runway acceleration", async 
   );
   assert.match(
     simulator,
-    /next\.speed = moveToward\(\s*next\.speed,\s*78,\s*TAKEOFF_ACCELERATION_PER_TICK/s,
+    /next\.speed = moveToward\(\s*next\.speed,\s*performance\.rotationSpeed,\s*takeoffAccelerationKnotsPerSecond\(next\)/s,
   );
+  assert.match(simulator, /next\.targetSpeed = performance\.initialClimbSpeed/);
+  assert.match(simulator, /next\.targetAltitude = Math\.max\(next\.targetAltitude, 2500\)/);
+  assert.doesNotMatch(simulator, /TAKEOFF_ACCELERATION_PER_TICK|targetSpeed = 78/);
   assert.doesNotMatch(simulator, /flight\.status = "TAKEOFF_ROLL"/);
   assert.match(simulator, /LINE UP & WAIT/);
   assert.match(simulator, /TAKEOFF POWER SET/);

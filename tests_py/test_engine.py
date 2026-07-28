@@ -1,7 +1,10 @@
 import unittest
 
 from simulation import Aircraft, AircraftState, FlightKind, Runway, Simulation
-from simulation.engine import coordinated_turn_rate_degrees_per_second
+from simulation.engine import (
+    coordinated_turn_rate_degrees_per_second,
+    takeoff_acceleration_knots_per_second,
+)
 
 
 def make_simulation() -> Simulation:
@@ -35,6 +38,11 @@ def make_simulation() -> Simulation:
                 heading_deg=210,
                 altitude_ft=177,
                 speed_kt=0,
+                max_bank_deg=30,
+                rotation_speed_kt=60,
+                initial_climb_speed_kt=79,
+                takeoff_ground_roll_ft=1135,
+                climb_rate_fpm=667,
             ),
         },
     )
@@ -50,6 +58,17 @@ class SimulationTests(unittest.TestCase):
         self.assertGreater(light_at_115, transport_at_190)
         self.assertGreater(transport_at_190, transport_at_220)
         self.assertAlmostEqual(transport_at_220, 2.315, places=3)
+
+    def test_takeoff_acceleration_is_derived_and_tapers_with_speed(self) -> None:
+        departure = make_simulation().aircraft["N4382K"]
+        departure.takeoff_roll_seconds = 10
+        initial_acceleration = takeoff_acceleration_knots_per_second(departure)
+        departure.speed_kt = 55
+        later_acceleration = takeoff_acceleration_knots_per_second(departure)
+
+        self.assertGreater(initial_acceleration, 1.5)
+        self.assertLess(initial_acceleration, 3)
+        self.assertLess(later_acceleration, initial_acceleration)
 
     def test_landing_requires_three_thousand_agl_and_runway_heading(self) -> None:
         simulation = make_simulation()
@@ -124,11 +143,19 @@ class SimulationTests(unittest.TestCase):
         )
         self.assertEqual(simulation.aircraft["N4382K"].speed_kt, 0)
         simulation.step(5)
-        self.assertEqual(simulation.aircraft["N4382K"].speed_kt, 25)
+        self.assertGreater(simulation.aircraft["N4382K"].speed_kt, 5)
+        self.assertLess(simulation.aircraft["N4382K"].speed_kt, 20)
         self.assertIs(
             simulation.aircraft["N4382K"].state,
             AircraftState.TAKEOFF_ROLL,
         )
+        simulation.step(30)
+        self.assertIs(
+            simulation.aircraft["N4382K"].state,
+            AircraftState.DEPARTURE,
+        )
+        self.assertGreater(simulation.aircraft["N4382K"].speed_kt, 60)
+        self.assertGreater(simulation.aircraft["N4382K"].altitude_ft, 177)
 
     def test_departure_can_take_off_from_reciprocal_runway_end(self) -> None:
         simulation = make_simulation()
@@ -190,7 +217,7 @@ class SimulationTests(unittest.TestCase):
         arrival.target_speed_kt = 100
         simulation.issue("N172SP", "S 120")
         simulation.step()
-        self.assertEqual(arrival.speed_kt, 102)
+        self.assertEqual(arrival.speed_kt, 101)
 
     def test_replay_is_deterministic(self) -> None:
         first = make_simulation()

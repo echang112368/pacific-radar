@@ -51,6 +51,7 @@ type Aircraft = {
   departureHeading?: number;
   departureTurnDirection?: "L" | "R";
   groundSequenceTicks?: number;
+  takeoffRollTicks?: number;
   takeoffAfterLineup?: boolean;
   turnDirection?: "L" | "R";
   expedite?: boolean;
@@ -108,10 +109,8 @@ const TRACK_SAMPLE_TICKS =
 const TRACK_HISTORY_TICKS =
   SIMULATION_TICKS_PER_SECOND * TRACK_HISTORY_SECONDS;
 const SCOPE_NM_PER_WORLD_UNIT = 0.35;
-const AIRBORNE_SPEED_CHANGE_PER_TICK = 0.5;
 const LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND * 3;
 const TAKEOFF_POWER_TICKS = SIMULATION_TICKS_PER_SECOND;
-const TAKEOFF_ACCELERATION_PER_TICK = 1.8;
 const SIMULATION_SPEEDS = [1, 1.5, 2, 3, 4] as const;
 const STANDARD_RATE_TURN_DEGREES_PER_SECOND = 3;
 const COORDINATED_TURN_RATE_FACTOR = 1091;
@@ -123,6 +122,67 @@ const AIRCRAFT_BANK_LIMIT_DEGREES: Record<string, number> = {
   E145: 25,
   E175: 25,
   B738: 25,
+};
+const KNOT_TO_FEET_PER_SECOND = 1.68781;
+const AIRCRAFT_PERFORMANCE: Record<
+  string,
+  {
+    rotationSpeed: number;
+    initialClimbSpeed: number;
+    takeoffGroundRollFeet: number;
+    climbRateFeetPerMinute: number;
+    airborneAccelerationKnotsPerSecond: number;
+  }
+> = {
+  PA28: {
+    rotationSpeed: 60,
+    initialClimbSpeed: 79,
+    takeoffGroundRollFeet: 1135,
+    climbRateFeetPerMinute: 667,
+    airborneAccelerationKnotsPerSecond: 1,
+  },
+  C172: {
+    rotationSpeed: 55,
+    initialClimbSpeed: 74,
+    takeoffGroundRollFeet: 960,
+    climbRateFeetPerMinute: 730,
+    airborneAccelerationKnotsPerSecond: 1,
+  },
+  PC12: {
+    rotationSpeed: 82,
+    initialClimbSpeed: 130,
+    takeoffGroundRollFeet: 1850,
+    climbRateFeetPerMinute: 1920,
+    airborneAccelerationKnotsPerSecond: 2,
+  },
+  C25A: {
+    rotationSpeed: 105,
+    initialClimbSpeed: 160,
+    takeoffGroundRollFeet: 2900,
+    climbRateFeetPerMinute: 3500,
+    airborneAccelerationKnotsPerSecond: 2.5,
+  },
+  E145: {
+    rotationSpeed: 120,
+    initialClimbSpeed: 180,
+    takeoffGroundRollFeet: 4200,
+    climbRateFeetPerMinute: 2500,
+    airborneAccelerationKnotsPerSecond: 2.5,
+  },
+  E175: {
+    rotationSpeed: 125,
+    initialClimbSpeed: 190,
+    takeoffGroundRollFeet: 4500,
+    climbRateFeetPerMinute: 2500,
+    airborneAccelerationKnotsPerSecond: 2.5,
+  },
+  B738: {
+    rotationSpeed: 145,
+    initialClimbSpeed: 200,
+    takeoffGroundRollFeet: 5200,
+    climbRateFeetPerMinute: 3000,
+    airborneAccelerationKnotsPerSecond: 2.5,
+  },
 };
 
 const INITIAL_WORLD: World = {
@@ -364,6 +424,38 @@ function moveToward(current: number, target: number, amount: number) {
   return current + Math.sign(target - current) * amount;
 }
 
+function performanceFor(flight: Aircraft) {
+  return (
+    AIRCRAFT_PERFORMANCE[flight.type] ??
+    (flight.wake === "L" ? AIRCRAFT_PERFORMANCE.C172 : AIRCRAFT_PERFORMANCE.E145)
+  );
+}
+
+function takeoffAccelerationKnotsPerSecond(flight: Aircraft) {
+  const performance = performanceFor(flight);
+  const rotationFeetPerSecond =
+    performance.rotationSpeed * KNOT_TO_FEET_PER_SECOND;
+  const kinematicAccelerationKnotsPerSecond =
+    (rotationFeetPerSecond ** 2 /
+      (2 * performance.takeoffGroundRollFeet)) /
+    KNOT_TO_FEET_PER_SECOND;
+  const rollSeconds =
+    (flight.takeoffRollTicks ?? 0) / SIMULATION_TICKS_PER_SECOND;
+  const throttleResponse = 0.72 + 0.28 * Math.min(rollSeconds / 3, 1);
+  const speedRatio = clamp(
+    flight.speed / performance.rotationSpeed,
+    0,
+    1,
+  );
+  const aerodynamicTaper = 1 - 0.12 * speedRatio ** 2;
+  return (
+    kinematicAccelerationKnotsPerSecond *
+    1.12 *
+    throttleResponse *
+    aerodynamicTaper
+  );
+}
+
 function turnDegreesPerTick(flight: Aircraft) {
   if (flight.speed < 1) return 0;
   const bankLimit =
@@ -506,6 +598,18 @@ function currentGroundMotion(flight: Aircraft) {
   };
 }
 
+function hasPassedRunwayDepartureEnd(flight: Aircraft) {
+  const runway = runwayEndFor(flight);
+  const runwayX = runway.rolloutEnd.x - runway.threshold.x;
+  const runwayY = runway.rolloutEnd.y - runway.threshold.y;
+  const runwayLengthSquared = runwayX * runwayX + runwayY * runwayY;
+  const aircraftX = flight.x - runway.threshold.x;
+  const aircraftY = flight.y - runway.threshold.y;
+  const runwayProgress =
+    (aircraftX * runwayX + aircraftY * runwayY) / runwayLengthSquared;
+  return runwayProgress >= 1;
+}
+
 function stepWorld(previous: World): World {
   let world: World = { ...previous, tick: previous.tick + 1 };
   const stepped = previous.aircraft.map((flight) => {
@@ -552,15 +656,22 @@ function stepWorld(previous: World): World {
       next.turnDirection = undefined;
     }
     if (!onGround) {
+      const performance = performanceFor(next);
+      const verticalRateFeetPerMinute =
+        performance.climbRateFeetPerMinute *
+        (next.expedite ? 1.8 : 1);
       next.altitude = moveToward(
         next.altitude,
         next.targetAltitude,
-        next.expedite ? 32 : 16,
+        verticalRateFeetPerMinute /
+          60 /
+          SIMULATION_TICKS_PER_SECOND,
       );
       next.speed = moveToward(
         next.speed,
         next.targetSpeed,
-        AIRBORNE_SPEED_CHANGE_PER_TICK,
+        performance.airborneAccelerationKnotsPerSecond /
+          SIMULATION_TICKS_PER_SECOND,
       );
       if (Math.abs(next.altitude - next.targetAltitude) < 1) {
         next.expedite = false;
@@ -619,8 +730,9 @@ function stepWorld(previous: World): World {
       );
       if (next.groundSequenceTicks <= 0) {
         next.status = "TAKEOFF_ROLL";
-        next.targetSpeed = 78;
+        next.targetSpeed = performanceFor(next).rotationSpeed;
         next.groundSequenceTicks = undefined;
+        next.takeoffRollTicks = 0;
       }
     }
 
@@ -673,28 +785,38 @@ function stepWorld(previous: World): World {
       const dx = runway.rolloutEnd.x - next.x;
       const dy = runway.rolloutEnd.y - next.y;
       const dist = Math.hypot(dx, dy);
+      const performance = performanceFor(next);
+      next.takeoffRollTicks = (next.takeoffRollTicks ?? 0) + 1;
       next.speed = moveToward(
         next.speed,
-        78,
-        TAKEOFF_ACCELERATION_PER_TICK,
+        performance.rotationSpeed,
+        takeoffAccelerationKnotsPerSecond(next) /
+          SIMULATION_TICKS_PER_SECOND,
       );
       const travel = groundTravelForKnots(next.speed);
-      if (dist <= travel) {
-        next.x = runway.rolloutEnd.x;
-        next.y = runway.rolloutEnd.y;
+      next.x += (dx / Math.max(dist, 0.01)) * Math.min(dist, travel);
+      next.y += (dy / Math.max(dist, 0.01)) * Math.min(dist, travel);
+      if (next.speed >= performance.rotationSpeed) {
         next.status = "DEPARTURE";
-        next.targetSpeed = 120;
-        if (next.departureHeading !== undefined) {
-          next.targetHeading = next.departureHeading;
-          next.turnDirection = next.departureTurnDirection;
-        }
-      } else {
-        next.x += (dx / Math.max(dist, 0.01)) * travel;
-        next.y += (dy / Math.max(dist, 0.01)) * travel;
+        next.targetSpeed = performance.initialClimbSpeed;
+        next.targetAltitude = Math.max(next.targetAltitude, 2500);
+        next.takeoffRollTicks = undefined;
       }
     }
 
     if (next.status === "DEPARTURE") {
+      const clearOfRunway = hasPassedRunwayDepartureEnd(next);
+      if (
+        next.departureHeading !== undefined &&
+        next.altitude >= RUNWAY.elevation + 400 &&
+        clearOfRunway
+      ) {
+        next.targetHeading = next.departureHeading;
+        next.turnDirection = next.departureTurnDirection;
+      } else if (!clearOfRunway) {
+        next.targetHeading = runwayEndFor(next).heading;
+        next.turnDirection = undefined;
+      }
       const exit = EXIT_FIXES.find((fix) => fix.name === next.exitFix);
       const reachedExit =
         exit && Math.hypot(next.x - exit.x, next.y - exit.y) < 2.86;
@@ -1267,6 +1389,7 @@ function executeCommand(
         flight.speed = 0;
         flight.targetSpeed = 0;
         flight.groundSequenceTicks = undefined;
+        flight.takeoffRollTicks = undefined;
         flight.takeoffAfterLineup = false;
         flight.track = [];
         readbacks.push(

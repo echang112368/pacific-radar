@@ -58,6 +58,12 @@ class Aircraft:
     target_altitude_ft: float | None = None
     target_speed_kt: float | None = None
     max_bank_deg: float = 25
+    rotation_speed_kt: float = 55
+    initial_climb_speed_kt: float = 74
+    takeoff_ground_roll_ft: float = 960
+    climb_rate_fpm: float = 730
+    airborne_acceleration_kt_per_second: float = 1
+    takeoff_roll_seconds: float = 0
     landing_cleared: bool = False
     approach_cleared: bool = False
     departure_altitude_assigned: bool = False
