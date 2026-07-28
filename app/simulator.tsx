@@ -69,14 +69,22 @@ type EventItem = {
   message: string;
 };
 
-type SimulationFailure = {
-  kind: "collision";
-  flights: [string, string];
-  lateralSeparationNm: number;
-  verticalSeparationFeet: number;
-  finalScore: number;
-  tick: number;
-};
+type SimulationFailure =
+  | {
+      kind: "collision";
+      flights: [string, string];
+      lateralSeparationFeet: number;
+      verticalSeparationFeet: number;
+      finalScore: number;
+      tick: number;
+    }
+  | {
+      kind: "handoff_limit";
+      lastFlight: string;
+      incorrectHandoffs: number;
+      finalScore: number;
+      tick: number;
+    };
 
 type World = {
   tick: number;
@@ -86,6 +94,7 @@ type World = {
   safeOperations: number;
   separationLosses: number;
   runwayIncursions: number;
+  incorrectHandoffs: number;
   aircraft: Aircraft[];
   events: EventItem[];
   failure?: SimulationFailure;
@@ -118,9 +127,14 @@ const RUNWAY = {
 };
 
 const SIMULATION_TICKS_PER_SECOND = 4;
-const COLLISION_LATERAL_NM = 0.1;
-const COLLISION_VERTICAL_FEET = 200;
+const FEET_PER_NAUTICAL_MILE = 6076.12;
+const COLLISION_DISTANCE_FEET = 500;
+const COLLISION_LATERAL_NM =
+  COLLISION_DISTANCE_FEET / FEET_PER_NAUTICAL_MILE;
+const COLLISION_VERTICAL_FEET = 500;
 const COLLISION_SCORE_PENALTY = 1000;
+const INCORRECT_HANDOFF_LIMIT = 3;
+const INCORRECT_HANDOFF_PENALTY = 200;
 const MAX_CATCH_UP_TICKS_PER_PASS =
   SIMULATION_TICKS_PER_SECOND * 60;
 const CONTINUOUS_TRAFFIC_START_TICK = 920;
@@ -233,6 +247,7 @@ const INITIAL_WORLD: World = {
   safeOperations: 0,
   separationLosses: 0,
   runwayIncursions: 0,
+  incorrectHandoffs: 0,
   aircraft: [],
   events: [
     {
@@ -774,7 +789,13 @@ function stepWorld(previous: World): World {
   if (previous.failure) return previous;
   let world: World = { ...previous, tick: previous.tick + 1 };
   const stepped = previous.aircraft.map((flight) => {
-    if (flight.completed || flight.status === "HANDOFF") return flight;
+    if (
+      world.failure ||
+      flight.completed ||
+      flight.status === "HANDOFF"
+    ) {
+      return flight;
+    }
 
     const next = { ...flight };
     const previousPosition = {
@@ -1053,12 +1074,38 @@ function stepWorld(previous: World): World {
       } else if (leftScope) {
         next.status = "HANDOFF";
         next.completed = true;
-        world.score += 60;
+        const incorrectHandoffs = world.incorrectHandoffs + 1;
+        const finalScore = Math.max(
+          0,
+          world.score - INCORRECT_HANDOFF_PENALTY,
+        );
+        world = {
+          ...world,
+          score: finalScore,
+          incorrectHandoffs,
+        };
         world = appendEvent(
           world,
-          "system",
-          `${next.callsign}: Leaving tower scope — handed to nearby airspace.`,
+          "warning",
+          `${next.callsign}: Incorrect handoff — left controlled airspace without reaching ${next.exitFix ?? "the assigned exit"}.`,
         );
+        if (incorrectHandoffs > INCORRECT_HANDOFF_LIMIT) {
+          world = {
+            ...world,
+            failure: {
+              kind: "handoff_limit",
+              lastFlight: next.callsign,
+              incorrectHandoffs,
+              finalScore,
+              tick: world.tick,
+            },
+          };
+          world = appendEvent(
+            world,
+            "warning",
+            `HANDOFF FAILURE · ${incorrectHandoffs} incorrect handoffs · Shift failed.`,
+          );
+        }
       }
     }
 
@@ -1112,6 +1159,7 @@ function stepWorld(previous: World): World {
   });
 
   world.aircraft = stepped.filter((flight) => !flight.completed);
+  if (world.failure) return world;
 
   for (const spawn of SPAWN_SCHEDULE) {
     if (
@@ -1188,7 +1236,8 @@ function stepWorld(previous: World): World {
           failure: {
             kind: "collision",
             flights: [airborne[i].callsign, airborne[j].callsign],
-            lateralSeparationNm: lateral,
+            lateralSeparationFeet:
+              lateral * FEET_PER_NAUTICAL_MILE,
             verticalSeparationFeet: vertical,
             finalScore,
             tick: world.tick,
@@ -2341,6 +2390,9 @@ export function RadarSimulator() {
               <span>
                 <strong>{world.runwayIncursions}</strong> blocked hazards
               </span>
+              <span>
+                <strong>{world.incorrectHandoffs}</strong> handoff errors
+              </span>
             </div>
           </section>
 
@@ -2558,8 +2610,8 @@ export function RadarSimulator() {
                 <strong>{world.separationLosses}</strong>
               </div>
               <div>
-                <span>Blocked hazards</span>
-                <strong>{world.runwayIncursions}</strong>
+                <span>Handoff errors</span>
+                <strong>{world.incorrectHandoffs}</strong>
               </div>
             </div>
             <div className="high-score-board">
@@ -2603,26 +2655,58 @@ export function RadarSimulator() {
               !
             </div>
             <p className="eyebrow">SHIFT FAILED</p>
-            <h2 id="failure-title">Aircraft collision</h2>
-            <p className="failure-flights">
-              {world.failure.flights[0]} / {world.failure.flights[1]}
-            </p>
-            <p id="failure-explanation" className="failure-explanation">
-              The aircraft entered the collision envelope after required
-              separation was lost. Their final spacing was{" "}
-              <strong>
-                {world.failure.lateralSeparationNm.toFixed(2)} NM
-              </strong>{" "}
-              laterally and{" "}
-              <strong>
-                {Math.round(world.failure.verticalSeparationFeet)} feet
-              </strong>{" "}
-              vertically. The simulation has been stopped.
-            </p>
+            <h2 id="failure-title">
+              {world.failure.kind === "collision"
+                ? "Aircraft collision"
+                : "Handoff limit exceeded"}
+            </h2>
+            {world.failure.kind === "collision" ? (
+              <>
+                <p className="failure-flights">
+                  {world.failure.flights[0]} / {world.failure.flights[1]}
+                </p>
+                <p
+                  id="failure-explanation"
+                  className="failure-explanation"
+                >
+                  The aircraft entered the collision envelope after required
+                  separation was lost. Their final spacing was{" "}
+                  <strong>
+                    {Math.round(world.failure.lateralSeparationFeet)} feet
+                  </strong>{" "}
+                  laterally and{" "}
+                  <strong>
+                    {Math.round(world.failure.verticalSeparationFeet)} feet
+                  </strong>{" "}
+                  vertically. The simulation has been stopped.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="failure-flights">
+                  {world.failure.lastFlight}
+                </p>
+                <p
+                  id="failure-explanation"
+                  className="failure-explanation"
+                >
+                  More than three departures left controlled airspace without
+                  reaching their assigned exit fix.{" "}
+                  <strong>
+                    {world.failure.incorrectHandoffs} incorrect handoffs
+                  </strong>{" "}
+                  were recorded. The simulation has been stopped.
+                </p>
+              </>
+            )}
             <div className="failure-summary">
               <div>
                 <span>Failure</span>
-                <strong>Collision</strong>
+                <strong>
+                  {world.failure.kind === "collision"
+                    ? "Collision"
+                    : "Handoffs"}
+                </strong>
               </div>
               <div>
                 <span>Final score</span>
@@ -2631,8 +2715,16 @@ export function RadarSimulator() {
                 </strong>
               </div>
               <div>
-                <span>Safe operations</span>
-                <strong>{world.safeOperations}</strong>
+                <span>
+                  {world.failure.kind === "collision"
+                    ? "Safe operations"
+                    : "Handoff errors"}
+                </span>
+                <strong>
+                  {world.failure.kind === "collision"
+                    ? world.safeOperations
+                    : world.failure.incorrectHandoffs}
+                </strong>
               </div>
             </div>
             <button className="failure-restart" onClick={reset}>

@@ -53,7 +53,10 @@ test("includes terminal-scope completion and handoff behavior", async () => {
 
   assert.match(simulator, /const EXIT_FIXES/);
   assert.match(simulator, /Touchdown Runway \$\{next\.runway \?\? "21"\}, rolling out/);
-  assert.match(simulator, /handed to nearby airspace\./);
+  assert.match(
+    simulator,
+    /Incorrect handoff — left controlled airspace without reaching/,
+  );
   assert.match(simulator, /\["DCT", "DIRECT"\]/);
   assert.match(simulator, /appendGroundTrackSample/);
   assert.match(css, /ksmo-terminal-satellite\.jpg/);
@@ -241,8 +244,12 @@ test("stops the shift and explains the final score after a collision", async () 
   ]);
 
   assert.match(simulator, /type SimulationFailure/);
-  assert.match(simulator, /COLLISION_LATERAL_NM = 0\.1/);
-  assert.match(simulator, /COLLISION_VERTICAL_FEET = 200/);
+  assert.match(simulator, /COLLISION_DISTANCE_FEET = 500/);
+  assert.match(
+    simulator,
+    /COLLISION_DISTANCE_FEET \/ FEET_PER_NAUTICAL_MILE/,
+  );
+  assert.match(simulator, /COLLISION_VERTICAL_FEET = 500/);
   assert.match(simulator, /if \(previous\.failure\) return previous/);
   assert.match(
     simulator,
@@ -255,12 +262,42 @@ test("stops the shift and explains the final score after a collision", async () 
   assert.match(simulator, /if \(paused \|\| simulationFailed\)/);
   assert.match(simulator, /role="alertdialog"/);
   assert.match(simulator, /Aircraft collision/);
+  assert.match(simulator, /lateralSeparationFeet/);
   assert.match(simulator, /The simulation has been stopped/);
   assert.match(simulator, /Final score/);
   assert.match(simulator, /Start new shift/);
   assert.match(css, /\.failure-modal/);
   assert.match(css, /\.failure-summary/);
   assert.match(css, /\.failure-restart/);
+});
+
+test("fails after the fourth incorrect departure handoff", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /incorrectHandoffs:\s*number/);
+  assert.match(simulator, /incorrectHandoffs:\s*0/);
+  assert.match(simulator, /INCORRECT_HANDOFF_LIMIT = 3/);
+  assert.match(simulator, /INCORRECT_HANDOFF_PENALTY = 200/);
+  assert.match(
+    simulator,
+    /const incorrectHandoffs = world\.incorrectHandoffs \+ 1/,
+  );
+  assert.match(
+    simulator,
+    /incorrectHandoffs > INCORRECT_HANDOFF_LIMIT/,
+  );
+  assert.match(simulator, /kind: "handoff_limit"/);
+  assert.match(simulator, /Incorrect handoff — left controlled airspace/);
+  assert.match(simulator, /HANDOFF FAILURE/);
+  assert.match(simulator, /Handoff limit exceeded/);
+  assert.match(
+    simulator,
+    /More than three departures left controlled airspace/,
+  );
+  assert.match(simulator, /world\.incorrectHandoffs\}\<\/strong\> handoff errors/);
 });
 
 test("warns before a refresh would discard shift progress", async () => {
