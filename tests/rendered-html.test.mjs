@@ -105,7 +105,16 @@ test("maps displayed ground speed linearly to real-time screen movement", async 
     simulator,
     /Math\.round\(currentGroundMotion\(flight\)\.groundSpeed\)\}KT/,
   );
-  assert.match(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE/);
+  assert.match(
+    simulator,
+    /function groundTravelForKnots\(speedKnots: number\)/,
+  );
+  assert.match(
+    simulator,
+    /return nauticalMilesPerTick \/ SCOPE_NM_PER_WORLD_UNIT/,
+  );
+  assert.match(simulator, /next\.groundSpeed = instantaneousMotion\.groundSpeed/);
+  assert.doesNotMatch(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE/);
   assert.doesNotMatch(simulator, /BACKGROUND_MOVEMENT_SCALE/);
   assert.doesNotMatch(
     simulator,
@@ -166,7 +175,8 @@ test("aligns departures to KSMO Runway 03/21 and uses the full takeoff roll", as
   assert.match(simulator, /"21":\s*\{[^}]*heading:\s*210/s);
   assert.match(simulator, /"03":\s*\{[^}]*heading:\s*30/s);
   assert.match(simulator, /runway:\s*"03"/);
-  assert.match(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE = 3\.5/);
+  assert.match(simulator, /const travel = groundTravelForKnots\(next\.speed\)/);
+  assert.doesNotMatch(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE/);
   assert.match(simulator, /if \(dist <= travel\)/);
   assert.match(simulator, /next\.x = runway\.rolloutEnd\.x/);
   assert.match(simulator, /next\.status = "DEPARTURE"/);

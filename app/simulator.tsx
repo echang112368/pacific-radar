@@ -108,7 +108,6 @@ const TRACK_SAMPLE_TICKS =
 const TRACK_HISTORY_TICKS =
   SIMULATION_TICKS_PER_SECOND * TRACK_HISTORY_SECONDS;
 const SCOPE_NM_PER_WORLD_UNIT = 0.35;
-const TAKEOFF_ROLL_MOVEMENT_SCALE = 3.5;
 const AIRBORNE_SPEED_CHANGE_PER_TICK = 0.5;
 const LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND * 3;
 const TAKEOFF_POWER_TICKS = SIMULATION_TICKS_PER_SECOND;
@@ -354,10 +353,10 @@ function moveToward(current: number, target: number, amount: number) {
   return current + Math.sign(target - current) * amount;
 }
 
-function groundTravelForKnots(speedKnots: number, phaseScale = 1) {
+function groundTravelForKnots(speedKnots: number) {
   const elapsedHoursPerTick = 1 / SIMULATION_TICKS_PER_SECOND / 3600;
   const nauticalMilesPerTick = speedKnots * elapsedHoursPerTick;
-  return (nauticalMilesPerTick / SCOPE_NM_PER_WORLD_UNIT) * phaseScale;
+  return nauticalMilesPerTick / SCOPE_NM_PER_WORLD_UNIT;
 }
 
 function appendEvent(world: World, tone: EventItem["tone"], message: string) {
@@ -653,10 +652,7 @@ function stepWorld(previous: World): World {
         78,
         TAKEOFF_ACCELERATION_PER_TICK,
       );
-      const travel = groundTravelForKnots(
-        next.speed,
-        TAKEOFF_ROLL_MOVEMENT_SCALE,
-      );
+      const travel = groundTravelForKnots(next.speed);
       if (dist <= travel) {
         next.x = runway.rolloutEnd.x;
         next.y = runway.rolloutEnd.y;
@@ -720,11 +716,7 @@ function stepWorld(previous: World): World {
       y: next.y,
       tick: world.tick,
     });
-    next.groundSpeed =
-      instantaneousMotion.groundSpeed /
-      (flight.status === "TAKEOFF_ROLL"
-        ? TAKEOFF_ROLL_MOVEMENT_SCALE
-        : 1);
+    next.groundSpeed = instantaneousMotion.groundSpeed;
     if (instantaneousMotion.groundSpeed > 0.5) {
       next.groundTrack = instantaneousMotion.groundTrack;
     }
