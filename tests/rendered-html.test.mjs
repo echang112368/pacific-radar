@@ -124,6 +124,33 @@ test("maps displayed ground speed linearly to real-time screen movement", async 
   assert.doesNotMatch(simulator, /Math\.max\(next\.speed, 8\) \/ 4800/);
 });
 
+test("uses speed- and aircraft-dependent coordinated turn dynamics", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /STANDARD_RATE_TURN_DEGREES_PER_SECOND = 3/);
+  assert.match(simulator, /COORDINATED_TURN_RATE_FACTOR = 1091/);
+  assert.match(simulator, /PA28:\s*30/);
+  assert.match(simulator, /C172:\s*30/);
+  assert.match(simulator, /B738:\s*25/);
+  assert.match(simulator, /function turnDegreesPerTick\(flight: Aircraft\)/);
+  assert.match(simulator, /Math\.tan\(\(bankLimit \* Math\.PI\) \/ 180\)/);
+  assert.match(
+    simulator,
+    /Math\.min\(STANDARD_RATE_TURN_DEGREES_PER_SECOND, coordinatedRate\)/,
+  );
+  assert.match(
+    simulator,
+    /turnTowardDirected\(\s*next\.heading,\s*next\.targetHeading,\s*turnDegreesPerTick\(next\)/s,
+  );
+  assert.doesNotMatch(
+    simulator,
+    /turnTowardDirected\(\s*next\.heading,\s*next\.targetHeading,\s*0\.8/s,
+  );
+});
+
 test("offers fixed whole-simulation speed controls in the sidebar footer", async () => {
   const [simulator, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),

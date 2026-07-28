@@ -57,6 +57,7 @@ class Aircraft:
     target_heading_deg: float | None = None
     target_altitude_ft: float | None = None
     target_speed_kt: float | None = None
+    max_bank_deg: float = 25
     landing_cleared: bool = False
     approach_cleared: bool = False
     departure_altitude_assigned: bool = False

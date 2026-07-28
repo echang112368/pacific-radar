@@ -113,6 +113,17 @@ const LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND * 3;
 const TAKEOFF_POWER_TICKS = SIMULATION_TICKS_PER_SECOND;
 const TAKEOFF_ACCELERATION_PER_TICK = 1.8;
 const SIMULATION_SPEEDS = [1, 1.5, 2, 3, 4] as const;
+const STANDARD_RATE_TURN_DEGREES_PER_SECOND = 3;
+const COORDINATED_TURN_RATE_FACTOR = 1091;
+const AIRCRAFT_BANK_LIMIT_DEGREES: Record<string, number> = {
+  PA28: 30,
+  C172: 30,
+  PC12: 25,
+  C25A: 25,
+  E145: 25,
+  E175: 25,
+  B738: 25,
+};
 
 const INITIAL_WORLD: World = {
   tick: 0,
@@ -353,6 +364,21 @@ function moveToward(current: number, target: number, amount: number) {
   return current + Math.sign(target - current) * amount;
 }
 
+function turnDegreesPerTick(flight: Aircraft) {
+  if (flight.speed < 1) return 0;
+  const bankLimit =
+    AIRCRAFT_BANK_LIMIT_DEGREES[flight.type] ??
+    (flight.wake === "L" ? 30 : 25);
+  const coordinatedRate =
+    (COORDINATED_TURN_RATE_FACTOR *
+      Math.tan((bankLimit * Math.PI) / 180)) /
+    flight.speed;
+  return (
+    Math.min(STANDARD_RATE_TURN_DEGREES_PER_SECOND, coordinatedRate) /
+    SIMULATION_TICKS_PER_SECOND
+  );
+}
+
 function groundTravelForKnots(speedKnots: number) {
   const elapsedHoursPerTick = 1 / SIMULATION_TICKS_PER_SECOND / 3600;
   const nauticalMilesPerTick = speedKnots * elapsedHoursPerTick;
@@ -516,7 +542,7 @@ function stepWorld(previous: World): World {
     next.heading = turnTowardDirected(
       next.heading,
       next.targetHeading,
-      0.8,
+      turnDegreesPerTick(next),
       next.turnDirection,
     );
     if (

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from math import cos, hypot, radians, sin
+from math import cos, degrees, hypot, radians, sin, tan
 
 from .model import Aircraft, AircraftState, FlightKind, Runway, SimulationEvent
 
@@ -9,6 +9,18 @@ AIRBORNE_SPEED_CHANGE_KT_PER_SECOND = 2
 TAKEOFF_ACCELERATION_KT_PER_SECOND = 5
 LINE_UP_SECONDS = 3
 TAKEOFF_POWER_SECONDS = 1
+STANDARD_RATE_TURN_DEGREES_PER_SECOND = 3
+
+
+def coordinated_turn_rate_degrees_per_second(
+    speed_kt: float, max_bank_deg: float
+) -> float:
+    if speed_kt < 1:
+        return 0
+    coordinated_rate = degrees(
+        32.174 * tan(radians(max_bank_deg)) / (speed_kt * 1.68781)
+    )
+    return min(STANDARD_RATE_TURN_DEGREES_PER_SECOND, coordinated_rate)
 
 
 @dataclass(slots=True)
@@ -339,7 +351,10 @@ class Simulation:
         aircraft.heading_deg = self._turn(
             aircraft.heading_deg,
             aircraft.target_heading_deg or aircraft.heading_deg,
-            degrees=3 * self.tick_seconds,
+            degrees=coordinated_turn_rate_degrees_per_second(
+                aircraft.speed_kt, aircraft.max_bank_deg
+            )
+            * self.tick_seconds,
         )
         if aircraft.state is not AircraftState.TAKEOFF_ROLL:
             aircraft.altitude_ft = self._move(

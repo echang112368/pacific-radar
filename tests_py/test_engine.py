@@ -1,6 +1,7 @@
 import unittest
 
 from simulation import Aircraft, AircraftState, FlightKind, Runway, Simulation
+from simulation.engine import coordinated_turn_rate_degrees_per_second
 
 
 def make_simulation() -> Simulation:
@@ -23,6 +24,7 @@ def make_simulation() -> Simulation:
                 heading_deg=235,
                 altitude_ft=2600,
                 speed_kt=115,
+                max_bank_deg=30,
             ),
             "N4382K": Aircraft(
                 callsign="N4382K",
@@ -39,6 +41,16 @@ def make_simulation() -> Simulation:
 
 
 class SimulationTests(unittest.TestCase):
+    def test_coordinated_turn_rate_varies_with_speed_and_bank_limit(self) -> None:
+        light_at_115 = coordinated_turn_rate_degrees_per_second(115, 30)
+        transport_at_190 = coordinated_turn_rate_degrees_per_second(190, 25)
+        transport_at_220 = coordinated_turn_rate_degrees_per_second(220, 25)
+
+        self.assertAlmostEqual(light_at_115, 3)
+        self.assertGreater(light_at_115, transport_at_190)
+        self.assertGreater(transport_at_190, transport_at_220)
+        self.assertAlmostEqual(transport_at_220, 2.315, places=3)
+
     def test_landing_requires_three_thousand_agl_and_runway_heading(self) -> None:
         simulation = make_simulation()
         simulation.aircraft["N172SP"].altitude_ft = 4_000
