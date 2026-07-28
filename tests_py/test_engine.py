@@ -67,6 +67,11 @@ class SimulationTests(unittest.TestCase):
             simulation.aircraft["N4382K"].state,
             AircraftState.LINING_UP,
         )
+        simulation.step(2)
+        self.assertIs(
+            simulation.aircraft["N4382K"].state,
+            AircraftState.LINING_UP,
+        )
         simulation.step()
         self.assertIs(
             simulation.aircraft["N4382K"].state,
@@ -86,6 +91,11 @@ class SimulationTests(unittest.TestCase):
         simulation.issue("N4382K", "C 5")
         event = simulation.issue("N4382K", "T")
         self.assertEqual(event.event_type, "clearance_accepted")
+        self.assertIs(
+            simulation.aircraft["N4382K"].state,
+            AircraftState.LINING_UP,
+        )
+        simulation.step(2)
         self.assertIs(
             simulation.aircraft["N4382K"].state,
             AircraftState.LINING_UP,
@@ -117,7 +127,7 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(event.event_type, "clearance_accepted")
         self.assertEqual(departure.heading_deg, 30)
         self.assertIs(departure.state, AircraftState.LINING_UP)
-        simulation.step(2)
+        simulation.step(4)
         self.assertIs(departure.state, AircraftState.TAKEOFF_ROLL)
 
     def test_runway_occupancy_blocks_landing_clearance(self) -> None:

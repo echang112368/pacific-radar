@@ -153,7 +153,7 @@ test("stages lineup, takeoff power, and progressive runway acceleration", async 
   assert.match(simulator, /\| "TAKEOFF_READY"/);
   assert.match(
     simulator,
-    /LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND/,
+    /LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND \* 3/,
   );
   assert.match(
     simulator,

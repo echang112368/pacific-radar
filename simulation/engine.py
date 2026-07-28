@@ -7,6 +7,8 @@ from .model import Aircraft, AircraftState, FlightKind, Runway, SimulationEvent
 
 AIRBORNE_SPEED_CHANGE_KT_PER_SECOND = 2
 TAKEOFF_ACCELERATION_KT_PER_SECOND = 5
+LINE_UP_SECONDS = 3
+TAKEOFF_POWER_SECONDS = 1
 
 
 @dataclass(slots=True)
@@ -146,7 +148,7 @@ class Simulation:
                 aircraft.target_heading_deg = aircraft.heading_deg
                 aircraft.speed_kt = 0
                 aircraft.target_speed_kt = 0
-                aircraft.ground_sequence_seconds = 1
+                aircraft.ground_sequence_seconds = LINE_UP_SECONDS
                 aircraft.takeoff_after_lineup = False
                 clearances.append("line_up_and_wait")
                 cursor += 1
@@ -206,10 +208,10 @@ class Simulation:
                 aircraft.target_speed_kt = 0
                 if aircraft.state is AircraftState.LINE_UP:
                     aircraft.state = AircraftState.TAKEOFF_READY
-                    aircraft.ground_sequence_seconds = 1
+                    aircraft.ground_sequence_seconds = TAKEOFF_POWER_SECONDS
                 elif aircraft.state is AircraftState.HOLD_SHORT:
                     aircraft.state = AircraftState.LINING_UP
-                    aircraft.ground_sequence_seconds = 1
+                    aircraft.ground_sequence_seconds = LINE_UP_SECONDS
                 aircraft.takeoff_after_lineup = True
                 clearances.append("takeoff")
                 cursor += 1
@@ -311,7 +313,7 @@ class Simulation:
                 aircraft.speed_kt = 0
                 if aircraft.takeoff_after_lineup:
                     aircraft.state = AircraftState.TAKEOFF_READY
-                    aircraft.ground_sequence_seconds = 1
+                    aircraft.ground_sequence_seconds = TAKEOFF_POWER_SECONDS
                 else:
                     aircraft.state = AircraftState.LINE_UP
             return
