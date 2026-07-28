@@ -113,6 +113,7 @@ const AIRBORNE_SPEED_CHANGE_PER_TICK = 0.5;
 const LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND * 3;
 const TAKEOFF_POWER_TICKS = SIMULATION_TICKS_PER_SECOND;
 const TAKEOFF_ACCELERATION_PER_TICK = 1.8;
+const SIMULATION_SPEEDS = [1, 1.5, 2, 3, 4] as const;
 
 const INITIAL_WORLD: World = {
   tick: 0,
@@ -1322,6 +1323,7 @@ export function RadarSimulator() {
   const [selected, setSelected] = useState<string | null>(null);
   const [command, setCommand] = useState("");
   const [paused, setPaused] = useState(false);
+  const [speedIndex, setSpeedIndex] = useState(0);
   const [queuedCommands, setQueuedCommands] = useState<
     { callsign: string; command: string }[]
   >([]);
@@ -1340,14 +1342,15 @@ export function RadarSimulator() {
     }
   });
   const inputRef = useRef<HTMLInputElement>(null);
+  const simulationSpeed = SIMULATION_SPEEDS[speedIndex];
 
   useEffect(() => {
     if (paused) return;
     const timer = window.setInterval(() => {
       setWorld((current) => stepWorld(current));
-    }, 250);
+    }, 1000 / SIMULATION_TICKS_PER_SECOND / simulationSpeed);
     return () => window.clearInterval(timer);
-  }, [paused]);
+  }, [paused, simulationSpeed]);
 
   useEffect(() => {
     const focusCommand = (event: KeyboardEvent) => {
@@ -1916,10 +1919,41 @@ export function RadarSimulator() {
           </section>
 
           <footer className="side-footer">
-            <button className="ghost-button" onClick={reset}>
-              Reset seed 0321
-            </button>
-            <span>Deterministic replay · build 0.1</span>
+            <div className="speed-control-heading">
+              <span>Simulation speed</span>
+              <strong>
+                {simulationSpeed === 1
+                  ? "Real life"
+                  : `${simulationSpeed}×`}
+              </strong>
+            </div>
+            <input
+              className="simulation-speed-slider"
+              type="range"
+              min="0"
+              max={SIMULATION_SPEEDS.length - 1}
+              step="1"
+              value={speedIndex}
+              aria-label="Simulation speed"
+              aria-valuetext={
+                simulationSpeed === 1
+                  ? "Real life speed"
+                  : `${simulationSpeed} times speed`
+              }
+              onChange={(event) =>
+                setSpeedIndex(Number.parseInt(event.currentTarget.value, 10))
+              }
+            />
+            <div className="speed-scale" aria-hidden="true">
+              {SIMULATION_SPEEDS.map((speed, index) => (
+                <span
+                  className={index === speedIndex ? "active" : ""}
+                  key={speed}
+                >
+                  {speed === 1 ? "Real life" : `${speed}×`}
+                </span>
+              ))}
+            </div>
           </footer>
         </aside>
       </section>

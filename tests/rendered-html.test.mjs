@@ -115,6 +115,27 @@ test("maps displayed ground speed linearly to real-time screen movement", async 
   assert.doesNotMatch(simulator, /Math\.max\(next\.speed, 8\) \/ 4800/);
 });
 
+test("offers fixed whole-simulation speed controls in the sidebar footer", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /SIMULATION_SPEEDS = \[1, 1\.5, 2, 3, 4\] as const/);
+  assert.match(simulator, /const \[speedIndex, setSpeedIndex\] = useState\(0\)/);
+  assert.match(
+    simulator,
+    /1000 \/ SIMULATION_TICKS_PER_SECOND \/ simulationSpeed/,
+  );
+  assert.match(simulator, /\[paused, simulationSpeed\]/);
+  assert.match(simulator, /aria-label="Simulation speed"/);
+  assert.match(simulator, /Real life speed/);
+  assert.doesNotMatch(simulator, /Reset seed 0321/);
+  assert.doesNotMatch(simulator, /Deterministic replay · build 0\.1/);
+  assert.match(css, /\.simulation-speed-slider/);
+  assert.match(css, /\.speed-scale/);
+});
+
 test("aligns departures to KSMO Runway 03/21 and uses the full takeoff roll", async () => {
   const [simulator, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
