@@ -1609,7 +1609,7 @@ export function RadarSimulator() {
         <div className="radar-column">
           <div className="radar-frame">
             <div
-              className={`radar-map ${showSatellite ? "satellite-on" : "satellite-off"}`}
+              className={`radar-map ${showSatellite ? "satellite-on" : "satellite-off"} ${paused ? "simulation-paused" : ""}`}
               aria-label="Interactive radar map centered on Santa Monica Municipal Airport"
             >
               <div className="satellite-layer" />
@@ -1805,20 +1805,17 @@ export function RadarSimulator() {
 
               {paused && (
                 <div
-                  className="pause-overlay"
+                  className="pause-indicator"
                   role="status"
                   aria-label="Simulation paused. Aircraft movement and simulation clock are frozen."
                 >
-                  <div className="pause-card">
-                    <span>Simulation paused</span>
-                    <small>
-                      Traffic and clock frozen ·{" "}
-                      {queuedCommands.length === 0
-                        ? "commands remain available"
-                        : `${queuedCommands.length} clearance${queuedCommands.length === 1 ? "" : "s"} queued`}
-                    </small>
-                    <button onClick={resumeSimulation}>Resume shift</button>
-                  </div>
+                  <strong>Simulation paused</strong>
+                  <span>
+                    Traffic and clock frozen ·{" "}
+                    {queuedCommands.length === 0
+                      ? "commands remain available"
+                      : `${queuedCommands.length} clearance${queuedCommands.length === 1 ? "" : "s"} queued`}
+                  </span>
                 </div>
               )}
             </div>

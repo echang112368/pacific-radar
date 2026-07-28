@@ -664,52 +664,43 @@ h2 {
   }
 }
 
-.pause-overlay {
+.pause-indicator {
   position: absolute;
-  inset: 0;
+  left: 50%;
+  top: 12px;
   z-index: 20;
-  display: grid;
-  place-content: center;
-  background: rgba(2, 17, 17, 0.76);
-  backdrop-filter: blur(6px) saturate(0.45);
-}
-
-.pause-card {
-  min-width: 280px;
-  display: grid;
-  justify-items: center;
+  display: flex;
+  align-items: center;
   gap: 10px;
-  padding: 22px 26px 24px;
-  border: 1px solid rgba(177, 242, 218, 0.14);
-  background: rgba(3, 19, 17, 0.62);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+  padding: 7px 11px;
+  border: 1px solid rgba(96, 242, 189, 0.42);
+  background: rgba(3, 22, 18, 0.9);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+  color: var(--mint-strong);
+  pointer-events: none;
+  transform: translateX(-50%);
 }
 
-.pause-card span {
+.pause-indicator strong {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.pause-card small {
+.pause-indicator span {
+  padding-left: 10px;
+  border-left: 1px solid rgba(96, 242, 189, 0.24);
   color: #9db7ad;
   font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.03em;
+  font-size: 7px;
+  white-space: nowrap;
 }
 
-.pause-card button {
-  min-width: 150px;
-  margin-top: 4px;
-  padding: 11px 18px;
-  border: 1px solid var(--mint-strong);
-  background: var(--mint-strong);
-  color: #052017;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 700;
+.radar-map.simulation-paused .conflict-banner {
+  top: 48px;
 }
 
 .command-deck {

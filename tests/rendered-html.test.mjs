@@ -227,7 +227,12 @@ test("pause is a planning state with compact, boxless traffic displays", async (
 
   const dataTag = css.match(/\.data-tag\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(dataTag, /\bbackground\s*:|\bborder(?:-\w+)?\s*:|\boutline\s*:/);
-  assert.match(css, /\.pause-overlay\s*\{[^}]*inset:\s*0/s);
+  assert.match(simulator, /className="pause-indicator"/);
+  assert.doesNotMatch(simulator, /className="pause-overlay"/);
+  assert.doesNotMatch(simulator, /Resume shift/);
+  assert.match(css, /\.pause-indicator\s*\{[^}]*top:\s*12px/s);
+  assert.match(css, /\.pause-indicator\s*\{[^}]*pointer-events:\s*none/s);
+  assert.doesNotMatch(css, /\.pause-overlay|\.pause-card/);
   assert.match(css, /\.flight-strip\s*\{[^}]*min-height:\s*49px/s);
 });
 
