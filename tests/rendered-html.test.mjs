@@ -186,7 +186,7 @@ test("offers fixed whole-simulation speed controls in the sidebar footer", async
   assert.match(simulator, /const \[speedIndex, setSpeedIndex\] = useState\(0\)/);
   assert.match(
     simulator,
-    /1000 \/ SIMULATION_TICKS_PER_SECOND \/ simulationSpeed/,
+    /SIMULATION_TICKS_PER_SECOND \*\s*simulationSpeed/s,
   );
   assert.match(simulator, /\[paused, simulationSpeed\]/);
   assert.match(simulator, /aria-label="Simulation speed"/);
@@ -195,6 +195,40 @@ test("offers fixed whole-simulation speed controls in the sidebar footer", async
   assert.doesNotMatch(simulator, /Deterministic replay · build 0\.1/);
   assert.match(css, /\.simulation-speed-slider/);
   assert.match(css, /\.speed-scale/);
+});
+
+test("reconciles elapsed wall time after browser background throttling", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /MAX_CATCH_UP_TICKS_PER_PASS/);
+  assert.match(simulator, /lastSimulationUpdateRef/);
+  assert.match(simulator, /pendingSimulationTicksRef/);
+  assert.match(simulator, /function advanceWorldByTicks/);
+  assert.match(simulator, /const elapsedSeconds = Math\.max\(0, \(now - previousUpdate\) \/ 1000\)/);
+  assert.match(
+    simulator,
+    /elapsedSeconds \*\s*SIMULATION_TICKS_PER_SECOND \*\s*simulationSpeed/s,
+  );
+  assert.match(
+    simulator,
+    /advanceWorldByTicks\(current, ticksToAdvance\)/,
+  );
+  assert.match(
+    simulator,
+    /document\.addEventListener\("visibilitychange", advanceToWallClock\)/,
+  );
+  assert.match(
+    simulator,
+    /window\.addEventListener\("focus", advanceToWallClock\)/,
+  );
+  assert.match(simulator, /window\.setInterval\(advanceToWallClock, 250\)/);
+  assert.doesNotMatch(
+    simulator,
+    /setInterval\(\(\) => \{\s*setWorld\(\(current\) => stepWorld\(current\)\)/s,
+  );
 });
 
 test("warns before a refresh would discard shift progress", async () => {
@@ -298,7 +332,7 @@ test("pause is a planning state with compact, boxless traffic displays", async (
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(simulator, /if \(paused\) return;/);
+  assert.match(simulator, /if \(paused\) \{/);
   assert.match(simulator, /Clearance queued for resume/);
   assert.match(simulator, /queuedCommands\.reduce/);
   assert.match(simulator, /Traffic and clock frozen/);

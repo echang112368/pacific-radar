@@ -108,6 +108,8 @@ const RUNWAY = {
 };
 
 const SIMULATION_TICKS_PER_SECOND = 4;
+const MAX_CATCH_UP_TICKS_PER_PASS =
+  SIMULATION_TICKS_PER_SECOND * 60;
 const CONTINUOUS_TRAFFIC_START_TICK = 920;
 const INITIAL_TRAFFIC_INTERVAL_TICKS = 28 * SIMULATION_TICKS_PER_SECOND;
 const MINIMUM_TRAFFIC_INTERVAL_TICKS = 12 * SIMULATION_TICKS_PER_SECOND;
@@ -1151,29 +1153,35 @@ function stepWorld(previous: World): World {
       ].includes(flight.status),
   );
 
-  for (let i = 0; i < airborne.length; i += 1) {
-    for (let j = i + 1; j < airborne.length; j += 1) {
-      const lateral = distance(airborne[i], airborne[j]);
-      const vertical = Math.abs(
-        airborne[i].altitude - airborne[j].altitude,
-      );
-      if (
-        lateral < 3 &&
-        vertical < 1000 &&
-        previous.tick % 24 === 0
-      ) {
-        world.separationLosses += 1;
-        world.score = Math.max(0, world.score - 350);
-        world = appendEvent(
-          world,
-          "warning",
-          `LOSS OF SEPARATION · ${airborne[i].callsign} / ${airborne[j].callsign} · ${lateral.toFixed(1)} NM`,
+  if (previous.tick % 24 === 0) {
+    for (let i = 0; i < airborne.length; i += 1) {
+      for (let j = i + 1; j < airborne.length; j += 1) {
+        const lateral = distance(airborne[i], airborne[j]);
+        const vertical = Math.abs(
+          airborne[i].altitude - airborne[j].altitude,
         );
+        if (lateral < 3 && vertical < 1000) {
+          world.separationLosses += 1;
+          world.score = Math.max(0, world.score - 350);
+          world = appendEvent(
+            world,
+            "warning",
+            `LOSS OF SEPARATION · ${airborne[i].callsign} / ${airborne[j].callsign} · ${lateral.toFixed(1)} NM`,
+          );
+        }
       }
     }
   }
 
   return world;
+}
+
+function advanceWorldByTicks(previous: World, ticks: number) {
+  let advanced = previous;
+  for (let tick = 0; tick < ticks; tick += 1) {
+    advanced = stepWorld(advanced);
+  }
+  return advanced;
 }
 
 function executeCommand(
@@ -1708,14 +1716,47 @@ export function RadarSimulator() {
     }
   });
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastSimulationUpdateRef = useRef<number | null>(null);
+  const pendingSimulationTicksRef = useRef(0);
   const simulationSpeed = SIMULATION_SPEEDS[speedIndex];
 
   useEffect(() => {
-    if (paused) return;
-    const timer = window.setInterval(() => {
-      setWorld((current) => stepWorld(current));
-    }, 1000 / SIMULATION_TICKS_PER_SECOND / simulationSpeed);
-    return () => window.clearInterval(timer);
+    if (paused) {
+      lastSimulationUpdateRef.current = null;
+      pendingSimulationTicksRef.current = 0;
+      return;
+    }
+
+    lastSimulationUpdateRef.current = Date.now();
+    const advanceToWallClock = () => {
+      const now = Date.now();
+      const previousUpdate = lastSimulationUpdateRef.current ?? now;
+      const elapsedSeconds = Math.max(0, (now - previousUpdate) / 1000);
+      lastSimulationUpdateRef.current = now;
+      pendingSimulationTicksRef.current +=
+        elapsedSeconds *
+        SIMULATION_TICKS_PER_SECOND *
+        simulationSpeed;
+      const ticksToAdvance = Math.min(
+        Math.floor(pendingSimulationTicksRef.current),
+        MAX_CATCH_UP_TICKS_PER_PASS,
+      );
+      if (ticksToAdvance < 1) return;
+      pendingSimulationTicksRef.current -= ticksToAdvance;
+      setWorld((current) =>
+        advanceWorldByTicks(current, ticksToAdvance),
+      );
+    };
+
+    const timer = window.setInterval(advanceToWallClock, 250);
+    document.addEventListener("visibilitychange", advanceToWallClock);
+    window.addEventListener("focus", advanceToWallClock);
+    return () => {
+      advanceToWallClock();
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", advanceToWallClock);
+      window.removeEventListener("focus", advanceToWallClock);
+    };
   }, [paused, simulationSpeed]);
 
   useEffect(() => {
