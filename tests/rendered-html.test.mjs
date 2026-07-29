@@ -271,6 +271,28 @@ test("stops the shift and explains the final score after a collision", async () 
   assert.match(css, /\.failure-restart/);
 });
 
+test("highlights only aircraft inside the actual separation envelope", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /const conflictedCallsigns = useMemo/);
+  assert.match(simulator, /if \(lateral < 3 && vertical < 1000\)/);
+  assert.match(simulator, /result\.add\(airborne\[i\]\.callsign\)/);
+  assert.match(simulator, /result\.add\(airborne\[j\]\.callsign\)/);
+  assert.match(
+    simulator,
+    /conflictedCallsigns\.has\(flight\.callsign\) \? "conflict" : ""/,
+  );
+  assert.doesNotMatch(simulator, /CONFLICT PREDICTION/);
+  assert.doesNotMatch(simulator, /lateral < 4\.5/);
+  assert.doesNotMatch(simulator, /className="conflict-banner"/);
+  assert.match(css, /\.aircraft-target\.conflict \.data-tag/);
+  assert.match(css, /\.aircraft-target\.conflict \.target-chevron/);
+  assert.doesNotMatch(css, /\.conflict-banner/);
+});
+
 test("fails on the third incorrect departure handoff", async () => {
   const simulator = await readFile(
     new URL("../app/simulator.tsx", import.meta.url),

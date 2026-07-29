@@ -1899,8 +1899,8 @@ export function RadarSimulator() {
     null;
   const activeSelection = selectedFlight?.callsign ?? null;
 
-  const alerts = useMemo(() => {
-    const result: string[] = [];
+  const conflictedCallsigns = useMemo(() => {
+    const result = new Set<string>();
     const airborne = radarAircraft.filter(
       (flight) =>
         ![
@@ -1919,10 +1919,9 @@ export function RadarSimulator() {
         const vertical = Math.abs(
           airborne[i].altitude - airborne[j].altitude,
         );
-        if (lateral < 4.5 && vertical < 1000) {
-          result.push(
-            `${airborne[i].callsign} / ${airborne[j].callsign} ${lateral.toFixed(1)} NM`,
-          );
+        if (lateral < 3 && vertical < 1000) {
+          result.add(airborne[i].callsign);
+          result.add(airborne[j].callsign);
         }
       }
     }
@@ -2238,7 +2237,7 @@ export function RadarSimulator() {
                 const groundMotion = currentGroundMotion(flight);
                 return (
                   <button
-                    className={`aircraft-target ${activeSelection === flight.callsign ? "selected" : ""} ${flight.kind}`}
+                    className={`aircraft-target ${activeSelection === flight.callsign ? "selected" : ""} ${conflictedCallsigns.has(flight.callsign) ? "conflict" : ""} ${flight.kind}`}
                     key={flight.callsign}
                     style={{
                       left: `${clamp(flight.x, 1, 98)}%`,
@@ -2249,7 +2248,7 @@ export function RadarSimulator() {
                       setCommand(`${flight.callsign} `);
                       inputRef.current?.focus();
                     }}
-                    aria-label={`Select ${flight.callsign}, altitude ${Math.round(flight.altitude)} feet, ground track ${Math.round(groundMotion.groundTrack)}`}
+                    aria-label={`Select ${flight.callsign}, altitude ${Math.round(flight.altitude)} feet, ground track ${Math.round(groundMotion.groundTrack)}${conflictedCallsigns.has(flight.callsign) ? ", separation warning" : ""}`}
                   >
                     <span
                       className="target-chevron"
@@ -2296,13 +2295,6 @@ export function RadarSimulator() {
                   <span>5 NM</span>
                   <span>10 NM</span>
                   <span>15 NM</span>
-                </div>
-              )}
-
-              {alerts.length > 0 && (
-                <div className="conflict-banner">
-                  <span className="pulse-dot" />
-                  CONFLICT PREDICTION · {alerts[0]}
                 </div>
               )}
 

@@ -539,6 +539,23 @@ h2 {
   border-color: var(--mint-strong);
 }
 
+.aircraft-target.conflict .data-tag,
+.aircraft-target.conflict .data-tag span {
+  color: #ff7469;
+}
+
+.aircraft-target.conflict .target-chevron {
+  border-color: #ff7469;
+  background: rgba(58, 10, 8, 0.88);
+  box-shadow:
+    0 0 7px rgba(255, 89, 76, 0.82),
+    0 0 0 3px rgba(255, 89, 76, 0.2);
+}
+
+.aircraft-target.conflict .target-chevron::after {
+  background: #ff7469;
+}
+
 .map-title {
   position: absolute;
   left: 16px;
@@ -632,38 +649,6 @@ h2 {
   border-left: 1px solid rgba(202, 244, 228, 0.7);
 }
 
-.conflict-banner {
-  position: absolute;
-  left: 50%;
-  top: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 124, 112, 0.58);
-  background: rgba(55, 11, 8, 0.86);
-  color: #ffb7ae;
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 700;
-  transform: translateX(-50%);
-}
-
-.pulse-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--red);
-  box-shadow: 0 0 0 5px rgba(255, 124, 112, 0.13);
-  animation: pulse 1.2s infinite;
-}
-
-@keyframes pulse {
-  50% {
-    opacity: 0.45;
-  }
-}
-
 .pause-indicator {
   position: absolute;
   left: 50%;
@@ -697,10 +682,6 @@ h2 {
   font-family: var(--mono);
   font-size: 7px;
   white-space: nowrap;
-}
-
-.radar-map.simulation-paused .conflict-banner {
-  top: 48px;
 }
 
 .command-deck {
