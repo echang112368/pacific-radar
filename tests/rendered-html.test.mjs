@@ -271,7 +271,7 @@ test("stops the shift and explains the final score after a collision", async () 
   assert.match(css, /\.failure-restart/);
 });
 
-test("fails after the fourth incorrect departure handoff", async () => {
+test("fails on the third incorrect departure handoff", async () => {
   const simulator = await readFile(
     new URL("../app/simulator.tsx", import.meta.url),
     "utf8",
@@ -280,14 +280,13 @@ test("fails after the fourth incorrect departure handoff", async () => {
   assert.match(simulator, /incorrectHandoffs:\s*number/);
   assert.match(simulator, /incorrectHandoffs:\s*0/);
   assert.match(simulator, /INCORRECT_HANDOFF_LIMIT = 3/);
-  assert.match(simulator, /INCORRECT_HANDOFF_PENALTY = 200/);
   assert.match(
     simulator,
     /const incorrectHandoffs = world\.incorrectHandoffs \+ 1/,
   );
   assert.match(
     simulator,
-    /incorrectHandoffs > INCORRECT_HANDOFF_LIMIT/,
+    /incorrectHandoffs >= INCORRECT_HANDOFF_LIMIT/,
   );
   assert.match(simulator, /kind: "handoff_limit"/);
   assert.match(simulator, /Incorrect handoff — left controlled airspace/);
@@ -295,9 +294,32 @@ test("fails after the fourth incorrect departure handoff", async () => {
   assert.match(simulator, /Handoff limit exceeded/);
   assert.match(
     simulator,
-    /More than three departures left controlled airspace/,
+    /Three departures left controlled airspace/,
   );
-  assert.match(simulator, /world\.incorrectHandoffs\}\<\/strong\> handoff errors/);
+  assert.match(simulator, /world\.incorrectHandoffs\}\/3<\/strong> handoff errors/);
+});
+
+test("earns the overall score only from safe landings and handoffs", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /score:\s*0/);
+  assert.match(simulator, /safeLandings:\s*0/);
+  assert.match(simulator, /safeHandoffs:\s*0/);
+  assert.match(simulator, /SAFE_LANDING_POINTS = 100/);
+  assert.match(simulator, /SAFE_HANDOFF_POINTS = 100/);
+  assert.match(simulator, /world\.safeLandings \+= 1/);
+  assert.match(simulator, /world\.score \+= SAFE_LANDING_POINTS/);
+  assert.match(simulator, /world\.safeHandoffs \+= 1/);
+  assert.match(simulator, /world\.score \+= SAFE_HANDOFF_POINTS/);
+  assert.match(simulator, />OVERALL SCORE</);
+  assert.match(simulator, /safe landings/);
+  assert.match(simulator, /safe handoffs/);
+  assert.doesNotMatch(simulator, />SHIFT SCORE</);
+  assert.doesNotMatch(simulator, /COLLISION_SCORE_PENALTY/);
+  assert.doesNotMatch(simulator, /INCORRECT_HANDOFF_PENALTY/);
 });
 
 test("warns before a refresh would discard shift progress", async () => {

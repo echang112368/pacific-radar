@@ -91,7 +91,8 @@ type World = {
   trafficSequence: number;
   nextTrafficTick: number;
   score: number;
-  safeOperations: number;
+  safeLandings: number;
+  safeHandoffs: number;
   separationLosses: number;
   runwayIncursions: number;
   incorrectHandoffs: number;
@@ -102,7 +103,9 @@ type World = {
 
 type HighScore = {
   score: number;
-  safeOperations: number;
+  safeLandings?: number;
+  safeHandoffs?: number;
+  safeOperations?: number;
   elapsed: string;
 };
 
@@ -158,9 +161,9 @@ const COLLISION_DISTANCE_FEET = 500;
 const COLLISION_LATERAL_NM =
   COLLISION_DISTANCE_FEET / FEET_PER_NAUTICAL_MILE;
 const COLLISION_VERTICAL_FEET = 500;
-const COLLISION_SCORE_PENALTY = 1000;
 const INCORRECT_HANDOFF_LIMIT = 3;
-const INCORRECT_HANDOFF_PENALTY = 200;
+const SAFE_LANDING_POINTS = 100;
+const SAFE_HANDOFF_POINTS = 100;
 const MAX_CATCH_UP_TICKS_PER_PASS =
   SIMULATION_TICKS_PER_SECOND * 60;
 const CONTINUOUS_TRAFFIC_START_TICK =
@@ -274,8 +277,9 @@ const INITIAL_WORLD: World = {
   tick: 0,
   trafficSequence: 0,
   nextTrafficTick: CONTINUOUS_TRAFFIC_START_TICK,
-  score: 1000,
-  safeOperations: 0,
+  score: 0,
+  safeLandings: 0,
+  safeHandoffs: 0,
   separationLosses: 0,
   runwayIncursions: 0,
   incorrectHandoffs: 0,
@@ -1002,8 +1006,8 @@ function stepWorld(previous: World): World {
         next.status = "LANDED";
         next.speed = 0;
         next.completed = true;
-        world.safeOperations += 1;
-        world.score += 250;
+        world.safeLandings += 1;
+        world.score += SAFE_LANDING_POINTS;
         world = appendEvent(
           world,
           "success",
@@ -1061,8 +1065,8 @@ function stepWorld(previous: World): World {
       if (reachedExit && next.altitude >= RUNWAY.elevation + 4000) {
         next.status = "HANDOFF";
         next.completed = true;
-        world.safeOperations += 1;
-        world.score += 220;
+        world.safeHandoffs += 1;
+        world.score += SAFE_HANDOFF_POINTS;
         world = appendEvent(
           world,
           "success",
@@ -1072,13 +1076,9 @@ function stepWorld(previous: World): World {
         next.status = "HANDOFF";
         next.completed = true;
         const incorrectHandoffs = world.incorrectHandoffs + 1;
-        const finalScore = Math.max(
-          0,
-          world.score - INCORRECT_HANDOFF_PENALTY,
-        );
+        const finalScore = world.score;
         world = {
           ...world,
-          score: finalScore,
           incorrectHandoffs,
         };
         world = appendEvent(
@@ -1086,7 +1086,7 @@ function stepWorld(previous: World): World {
           "warning",
           `${next.callsign}: Incorrect handoff — left controlled airspace without reaching ${next.exitFix ?? "the assigned exit"}.`,
         );
-        if (incorrectHandoffs > INCORRECT_HANDOFF_LIMIT) {
+        if (incorrectHandoffs >= INCORRECT_HANDOFF_LIMIT) {
           world = {
             ...world,
             failure: {
@@ -1112,7 +1112,6 @@ function stepWorld(previous: World): World {
       (next.x < -0.5 || next.x > 100.5 || next.y < -0.5 || next.y > 100.5)
     ) {
       next.completed = true;
-      world.score = Math.max(0, world.score - 200);
       world = appendEvent(
         world,
         "warning",
@@ -1222,13 +1221,9 @@ function stepWorld(previous: World): World {
         lateral <= COLLISION_LATERAL_NM &&
         vertical <= COLLISION_VERTICAL_FEET
       ) {
-        const finalScore = Math.max(
-          0,
-          world.score - COLLISION_SCORE_PENALTY,
-        );
+        const finalScore = world.score;
         world = {
           ...world,
-          score: finalScore,
           separationLosses: world.separationLosses + 1,
           failure: {
             kind: "collision",
@@ -1258,7 +1253,6 @@ function stepWorld(previous: World): World {
         );
         if (lateral < 3 && vertical < 1000) {
           world.separationLosses += 1;
-          world.score = Math.max(0, world.score - 350);
           world = appendEvent(
             world,
             "warning",
@@ -1323,7 +1317,6 @@ function executeCommand(
       {
         ...previous,
         runwayIncursions: previous.runwayIncursions + 1,
-        score: Math.max(0, previous.score - 500),
       },
       "warning",
       message,
@@ -1967,7 +1960,8 @@ export function RadarSimulator() {
       const elapsed = `${String(Math.floor(world.tick / 240)).padStart(2, "0")}:${String(Math.floor((world.tick % 240) / 4)).padStart(2, "0")}`;
       const entry: HighScore = {
         score: world.score,
-        safeOperations: world.safeOperations,
+        safeLandings: world.safeLandings,
+        safeHandoffs: world.safeHandoffs,
         elapsed,
       };
       const nextScores = [...highScores, entry]
@@ -2374,21 +2368,18 @@ export function RadarSimulator() {
 
           <section className="score-card">
             <div>
-              <span>SHIFT SCORE</span>
+              <span>OVERALL SCORE</span>
               <strong>{world.score.toLocaleString()}</strong>
             </div>
             <div className="score-metrics">
               <span>
-                <strong>{world.safeOperations}</strong> safe ops
+                <strong>{world.safeLandings}</strong> safe landings
               </span>
               <span>
-                <strong>{world.separationLosses}</strong> sep losses
+                <strong>{world.safeHandoffs}</strong> safe handoffs
               </span>
               <span>
-                <strong>{world.runwayIncursions}</strong> blocked hazards
-              </span>
-              <span>
-                <strong>{world.incorrectHandoffs}</strong> handoff errors
+                <strong>{world.incorrectHandoffs}/3</strong> handoff errors
               </span>
             </div>
           </section>
@@ -2595,20 +2586,20 @@ export function RadarSimulator() {
             </div>
             <div className="stats-grid">
               <div>
-                <span>Score</span>
+                <span>Overall score</span>
                 <strong>{world.score.toLocaleString()}</strong>
               </div>
               <div>
-                <span>Safe operations</span>
-                <strong>{world.safeOperations}</strong>
+                <span>Safe landings</span>
+                <strong>{world.safeLandings}</strong>
               </div>
               <div>
-                <span>Separation losses</span>
-                <strong>{world.separationLosses}</strong>
+                <span>Safe handoffs</span>
+                <strong>{world.safeHandoffs}</strong>
               </div>
               <div>
                 <span>Handoff errors</span>
-                <strong>{world.incorrectHandoffs}</strong>
+                <strong>{world.incorrectHandoffs}/3</strong>
               </div>
             </div>
             <div className="high-score-board">
@@ -2622,7 +2613,9 @@ export function RadarSimulator() {
                       <span>#{index + 1}</span>
                       <strong>{entry.score.toLocaleString()}</strong>
                       <small>
-                        {entry.safeOperations} safe · {entry.elapsed}
+                        {entry.safeLandings ?? 0} landed ·{" "}
+                        {entry.safeHandoffs ?? entry.safeOperations ?? 0} handed
+                        off · {entry.elapsed}
                       </small>
                     </li>
                   ))}
@@ -2687,7 +2680,7 @@ export function RadarSimulator() {
                   id="failure-explanation"
                   className="failure-explanation"
                 >
-                  More than three departures left controlled airspace without
+                  Three departures left controlled airspace without
                   reaching their assigned exit fix.{" "}
                   <strong>
                     {world.failure.incorrectHandoffs} incorrect handoffs
@@ -2714,12 +2707,12 @@ export function RadarSimulator() {
               <div>
                 <span>
                   {world.failure.kind === "collision"
-                    ? "Safe operations"
+                    ? "Safe landings"
                     : "Handoff errors"}
                 </span>
                 <strong>
                   {world.failure.kind === "collision"
-                    ? world.safeOperations
+                    ? world.safeLandings
                     : world.failure.incorrectHandoffs}
                 </strong>
               </div>
