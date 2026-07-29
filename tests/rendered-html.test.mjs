@@ -293,6 +293,27 @@ test("highlights only aircraft inside the actual separation envelope", async () 
   assert.doesNotMatch(css, /\.conflict-banner/);
 });
 
+test("uses hollow aircraft targets without a forward heading line", async () => {
+  const css = await readFile(
+    new URL("../app/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    css,
+    /\.target-chevron\s*\{[^}]*background:\s*transparent/s,
+  );
+  assert.match(
+    css,
+    /\.target-chevron::after,\s*\.target-chevron::before\s*\{[^}]*display:\s*none/s,
+  );
+  assert.match(
+    css,
+    /\.aircraft-target\.conflict \.target-chevron\s*\{[^}]*background:\s*transparent/s,
+  );
+  assert.doesNotMatch(css, /\.target-chevron::after\s*\{\s*content:/s);
+});
+
 test("fails on the third incorrect departure handoff", async () => {
   const simulator = await readFile(
     new URL("../app/simulator.tsx", import.meta.url),

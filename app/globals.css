@@ -477,21 +477,11 @@ h2 {
   width: 10px;
   height: 10px;
   border: 1px solid #d7fff0;
-  background: rgba(4, 28, 27, 0.76);
+  background: transparent;
   box-shadow: 0 0 7px rgba(178, 255, 226, 0.56);
 }
 
-.target-chevron::after {
-  content: "";
-  position: absolute;
-  left: 4px;
-  bottom: 8px;
-  width: 1px;
-  height: 7px;
-  background: #d7fff0;
-  transform-origin: bottom;
-}
-
+.target-chevron::after,
 .target-chevron::before {
   display: none;
 }
@@ -530,11 +520,6 @@ h2 {
   color: var(--mint-strong);
 }
 
-.aircraft-target.selected .target-chevron::before,
-.aircraft-target.selected .target-chevron::after {
-  background: var(--mint-strong);
-}
-
 .aircraft-target.selected .target-chevron {
   border-color: var(--mint-strong);
 }
@@ -546,14 +531,10 @@ h2 {
 
 .aircraft-target.conflict .target-chevron {
   border-color: #ff7469;
-  background: rgba(58, 10, 8, 0.88);
+  background: transparent;
   box-shadow:
     0 0 7px rgba(255, 89, 76, 0.82),
     0 0 0 3px rgba(255, 89, 76, 0.2);
-}
-
-.aircraft-target.conflict .target-chevron::after {
-  background: #ff7469;
 }
 
 .map-title {
