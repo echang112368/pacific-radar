@@ -278,11 +278,11 @@ test("highlights aircraft only inside the close-proximity warning radius", async
   ]);
 
   assert.match(simulator, /const conflictedCallsigns = useMemo/);
-  assert.match(simulator, /SEPARATION_WARNING_LATERAL_NM = 2/);
-  assert.match(simulator, /SEPARATION_WARNING_VERTICAL_FEET = 1000/);
+  assert.match(simulator, /LOSS_OF_SEPARATION_LATERAL_NM = 2/);
+  assert.match(simulator, /LOSS_OF_SEPARATION_VERTICAL_FEET = 1000/);
   assert.match(
     simulator,
-    /lateral < SEPARATION_WARNING_LATERAL_NM &&\s*vertical < SEPARATION_WARNING_VERTICAL_FEET/s,
+    /lateral < LOSS_OF_SEPARATION_LATERAL_NM &&\s*vertical < LOSS_OF_SEPARATION_VERTICAL_FEET/s,
   );
   assert.match(simulator, /result\.add\(airborne\[i\]\.callsign\)/);
   assert.match(simulator, /result\.add\(airborne\[j\]\.callsign\)/);
@@ -296,6 +296,16 @@ test("highlights aircraft only inside the close-proximity warning radius", async
   assert.match(css, /\.aircraft-target\.conflict \.data-tag/);
   assert.match(css, /\.aircraft-target\.conflict \.target-chevron/);
   assert.doesNotMatch(css, /\.conflict-banner/);
+  assert.match(
+    simulator,
+    /A loss of separation is recorded when aircraft are both less\s*than 2 NM apart laterally and less than 1,000 ft apart\s*vertically/s,
+  );
+  assert.match(
+    simulator,
+    /A collision immediately ends the game when aircraft are both\s*within 500 ft laterally and within 500 ft vertically/s,
+  );
+  assert.match(simulator, /The third\s*incorrect handoff also ends the game/s);
+  assert.doesNotMatch(simulator, /Maintain 3 NM or 1,000 ft/);
 });
 
 test("uses hollow aircraft targets without a forward heading line", async () => {

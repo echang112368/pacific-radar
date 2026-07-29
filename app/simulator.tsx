@@ -162,8 +162,8 @@ const COLLISION_DISTANCE_FEET = 500;
 const COLLISION_LATERAL_NM =
   COLLISION_DISTANCE_FEET / FEET_PER_NAUTICAL_MILE;
 const COLLISION_VERTICAL_FEET = 500;
-const SEPARATION_WARNING_LATERAL_NM = 2;
-const SEPARATION_WARNING_VERTICAL_FEET = 1000;
+const LOSS_OF_SEPARATION_LATERAL_NM = 2;
+const LOSS_OF_SEPARATION_VERTICAL_FEET = 1000;
 const INCORRECT_HANDOFF_LIMIT = 3;
 const SAFE_LANDING_POINTS = 100;
 const SAFE_HANDOFF_POINTS = 100;
@@ -1275,8 +1275,8 @@ function stepWorld(previous: World): World {
           airborne[i].altitude - airborne[j].altitude,
         );
         if (
-          lateral < SEPARATION_WARNING_LATERAL_NM &&
-          vertical < SEPARATION_WARNING_VERTICAL_FEET
+          lateral < LOSS_OF_SEPARATION_LATERAL_NM &&
+          vertical < LOSS_OF_SEPARATION_VERTICAL_FEET
         ) {
           world.separationLosses += 1;
           world = appendEvent(
@@ -1945,7 +1945,10 @@ export function RadarSimulator() {
         const vertical = Math.abs(
           airborne[i].altitude - airborne[j].altitude,
         );
-        if (lateral < 3 && vertical < 1000) {
+        if (
+          lateral < LOSS_OF_SEPARATION_LATERAL_NM &&
+          vertical < LOSS_OF_SEPARATION_VERTICAL_FEET
+        ) {
           result.add(airborne[i].callsign);
           result.add(airborne[j].callsign);
         }
@@ -2561,9 +2564,19 @@ export function RadarSimulator() {
             <div className="safety-note">
               <strong>Safety and runway rules</strong>
               <p>
-                Maintain 3 NM or 1,000 ft. Departures require an assigned
-                altitude. Landing requires 3,000 ft AGL or lower and a heading
-                within 60° of the cleared runway heading.
+                A loss of separation is recorded when aircraft are both less
+                than 2 NM apart laterally and less than 1,000 ft apart
+                vertically. Both affected radar targets turn red.
+              </p>
+              <p>
+                A collision immediately ends the game when aircraft are both
+                within 500 ft laterally and within 500 ft vertically. The third
+                incorrect handoff also ends the game.
+              </p>
+              <p>
+                Departures require an assigned altitude. Landing requires 3,000
+                ft AGL or lower and a heading within 60° of the cleared runway
+                heading.
               </p>
               <p>
                 KSMO has one runway designated 03/21. Runway 21 and Runway 03
