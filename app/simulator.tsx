@@ -56,6 +56,7 @@ type Aircraft = {
   landingRollTicks?: number;
   landingDistanceFeet?: number;
   takeoffAfterLineup?: boolean;
+  departureClimbTicks?: number;
   turnDirection?: "L" | "R";
   expedite?: boolean;
   holdFix?: string;
@@ -181,8 +182,16 @@ const TRACK_SAMPLE_TICKS =
 const TRACK_HISTORY_TICKS =
   SIMULATION_TICKS_PER_SECOND * TRACK_HISTORY_SECONDS;
 const SCOPE_NM_PER_WORLD_UNIT = 0.35;
-const LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND * 3;
+const LINE_UP_DELAY_SECONDS = 1.5;
+const LINE_UP_TICKS = Math.round(
+  SIMULATION_TICKS_PER_SECOND * LINE_UP_DELAY_SECONDS,
+);
 const TAKEOFF_POWER_TICKS = SIMULATION_TICKS_PER_SECOND;
+const INITIAL_TURN_MINIMUM_AGL_FEET = 500;
+const INITIAL_TURN_MINIMUM_CLIMB_SECONDS = 8;
+const INITIAL_TURN_MINIMUM_CLIMB_TICKS =
+  SIMULATION_TICKS_PER_SECOND * INITIAL_TURN_MINIMUM_CLIMB_SECONDS;
+const INITIAL_TURN_MINIMUM_SPEED_FACTOR = 1.15;
 const SIMULATION_SPEEDS = [1, 1.5, 2, 3, 4] as const;
 const STANDARD_RATE_TURN_DEGREES_PER_SECOND = 3;
 const COORDINATED_TURN_RATE_FACTOR = 1091;
@@ -1040,19 +1049,31 @@ function stepWorld(previous: World): World {
         next.targetSpeed = performance.initialClimbSpeed;
         next.targetAltitude = Math.max(next.targetAltitude, 2500);
         next.takeoffRollTicks = undefined;
+        next.departureClimbTicks = 0;
       }
     }
 
     if (next.status === "DEPARTURE") {
       const clearOfRunway = hasPassedRunwayDepartureEnd(next);
+      const performance = performanceFor(next);
+      next.departureClimbTicks = (next.departureClimbTicks ?? 0) + 1;
+      const minimumTurnSpeed = Math.min(
+        performance.initialClimbSpeed,
+        performance.rotationSpeed * INITIAL_TURN_MINIMUM_SPEED_FACTOR,
+      );
+      const stableInitialClimb =
+        next.altitude >=
+          RUNWAY.elevation + INITIAL_TURN_MINIMUM_AGL_FEET &&
+        next.speed >= minimumTurnSpeed &&
+        next.departureClimbTicks >= INITIAL_TURN_MINIMUM_CLIMB_TICKS;
       if (
         next.departureHeading !== undefined &&
-        next.altitude >= RUNWAY.elevation + 400 &&
-        clearOfRunway
+        clearOfRunway &&
+        stableInitialClimb
       ) {
         next.targetHeading = next.departureHeading;
         next.turnDirection = next.departureTurnDirection;
-      } else if (!clearOfRunway) {
+      } else {
         next.targetHeading = runwayEndFor(next).heading;
         next.turnDirection = undefined;
       }

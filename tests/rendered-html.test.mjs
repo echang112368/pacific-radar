@@ -402,7 +402,16 @@ test("aligns departures to KSMO Runway 03/21 and uses the full runway before vec
   assert.match(simulator, /const clearOfRunway = hasPassedRunwayDepartureEnd\(next\)/);
   assert.match(
     simulator,
-    /next\.altitude >= RUNWAY\.elevation \+ 400 &&\s*clearOfRunway/s,
+    /next\.altitude >=\s*RUNWAY\.elevation \+ INITIAL_TURN_MINIMUM_AGL_FEET/s,
+  );
+  assert.match(simulator, /next\.speed >= minimumTurnSpeed/);
+  assert.match(
+    simulator,
+    /next\.departureClimbTicks >= INITIAL_TURN_MINIMUM_CLIMB_TICKS/,
+  );
+  assert.match(
+    simulator,
+    /next\.departureHeading !== undefined &&\s*clearOfRunway &&\s*stableInitialClimb/s,
   );
   assert.match(simulator, /next\.targetHeading = runwayEndFor\(next\)\.heading/);
   assert.doesNotMatch(simulator, /next\.speed >= 72 \|\| dist < 2/);
@@ -428,7 +437,11 @@ test("stages lineup, takeoff power, and progressive runway acceleration", async 
   assert.match(simulator, /\| "TAKEOFF_READY"/);
   assert.match(
     simulator,
-    /LINE_UP_TICKS = SIMULATION_TICKS_PER_SECOND \* 3/,
+    /LINE_UP_DELAY_SECONDS = 1\.5/,
+  );
+  assert.match(
+    simulator,
+    /LINE_UP_TICKS = Math\.round\(\s*SIMULATION_TICKS_PER_SECOND \* LINE_UP_DELAY_SECONDS/s,
   );
   assert.match(
     simulator,
@@ -444,6 +457,10 @@ test("stages lineup, takeoff power, and progressive runway acceleration", async 
   assert.match(simulator, /flight\.status = "LINING_UP"/);
   assert.match(simulator, /next\.status = "TAKEOFF_READY"/);
   assert.match(simulator, /next\.status = "TAKEOFF_ROLL"/);
+  assert.match(simulator, /INITIAL_TURN_MINIMUM_AGL_FEET = 500/);
+  assert.match(simulator, /INITIAL_TURN_MINIMUM_CLIMB_SECONDS = 8/);
+  assert.match(simulator, /INITIAL_TURN_MINIMUM_SPEED_FACTOR = 1\.15/);
+  assert.match(simulator, /next\.departureClimbTicks = 0/);
   assert.match(
     simulator,
     /!\["HOLD_SHORT", "LINING_UP"\]\.includes\(flight\.status\)/,
