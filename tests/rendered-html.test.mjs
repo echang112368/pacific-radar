@@ -412,12 +412,35 @@ test("earns the overall score only from safe landings and handoffs", async () =>
   assert.match(simulator, /world\.score \+= SAFE_LANDING_POINTS/);
   assert.match(simulator, /world\.safeHandoffs \+= 1/);
   assert.match(simulator, /world\.score \+= SAFE_HANDOFF_POINTS/);
-  assert.match(simulator, />OVERALL SCORE</);
+  assert.match(simulator, /className="score-total"/);
+  assert.match(simulator, />SCORE</);
   assert.match(simulator, /safe landings/);
   assert.match(simulator, /safe handoffs/);
+  assert.doesNotMatch(simulator, />OVERALL SCORE</);
   assert.doesNotMatch(simulator, />SHIFT SCORE</);
   assert.doesNotMatch(simulator, /COLLISION_SCORE_PENALTY/);
   assert.doesNotMatch(simulator, /INCORRECT_HANDOFF_PENALTY/);
+});
+
+test("keeps the score summary in one compact horizontal row", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /> landed/);
+  assert.match(simulator, /> handed off/);
+  assert.match(simulator, /> handoff errors/);
+  assert.match(
+    css,
+    /\.score-card\s*\{[^}]*min-height:\s*34px[^}]*display:\s*flex[^}]*align-items:\s*center/s,
+  );
+  assert.match(
+    css,
+    /\.score-metrics\s*\{[^}]*display:\s*flex[^}]*justify-content:\s*space-between/s,
+  );
+  assert.match(css, /\.score-metrics span\s*\{[^}]*white-space:\s*nowrap/s);
+  assert.doesNotMatch(css, /\.score-card\s*\{[^}]*grid-template-columns/s);
 });
 
 test("warns before a refresh would discard shift progress", async () => {

@@ -2400,18 +2400,18 @@ export function RadarSimulator() {
           </section>
 
           <section className="score-card">
-            <div>
-              <span>OVERALL SCORE</span>
+            <div className="score-total">
+              <span>SCORE</span>
               <strong>{world.score.toLocaleString()}</strong>
             </div>
             <div className="score-metrics">
-              <span>
-                <strong>{world.safeLandings}</strong> safe landings
+              <span aria-label={`${world.safeLandings} safe landings`}>
+                <strong>{world.safeLandings}</strong> landed
               </span>
-              <span>
-                <strong>{world.safeHandoffs}</strong> safe handoffs
+              <span aria-label={`${world.safeHandoffs} safe handoffs`}>
+                <strong>{world.safeHandoffs}</strong> handed off
               </span>
-              <span>
+              <span aria-label={`${world.incorrectHandoffs} of 3 handoff errors`}>
                 <strong>{world.incorrectHandoffs}/3</strong> handoff errors
               </span>
             </div>
