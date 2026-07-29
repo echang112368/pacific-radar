@@ -476,9 +476,9 @@ h2 {
   top: -5px;
   width: 10px;
   height: 10px;
-  border: 1px solid #d7fff0;
+  border: 1px solid #fff;
   background: transparent;
-  box-shadow: 0 0 7px rgba(178, 255, 226, 0.56);
+  box-shadow: none;
 }
 
 .target-chevron::after,
@@ -521,7 +521,7 @@ h2 {
 }
 
 .aircraft-target.selected .target-chevron {
-  border-color: var(--mint-strong);
+  border-color: #fff;
 }
 
 .aircraft-target.conflict .data-tag,
@@ -532,9 +532,7 @@ h2 {
 .aircraft-target.conflict .target-chevron {
   border-color: #ff7469;
   background: transparent;
-  box-shadow:
-    0 0 7px rgba(255, 89, 76, 0.82),
-    0 0 0 3px rgba(255, 89, 76, 0.2);
+  box-shadow: none;
 }
 
 .map-title {

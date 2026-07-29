@@ -271,14 +271,19 @@ test("stops the shift and explains the final score after a collision", async () 
   assert.match(css, /\.failure-restart/);
 });
 
-test("highlights only aircraft inside the actual separation envelope", async () => {
+test("highlights aircraft only inside the close-proximity warning radius", async () => {
   const [simulator, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(simulator, /const conflictedCallsigns = useMemo/);
-  assert.match(simulator, /if \(lateral < 3 && vertical < 1000\)/);
+  assert.match(simulator, /SEPARATION_WARNING_LATERAL_NM = 2/);
+  assert.match(simulator, /SEPARATION_WARNING_VERTICAL_FEET = 1000/);
+  assert.match(
+    simulator,
+    /lateral < SEPARATION_WARNING_LATERAL_NM &&\s*vertical < SEPARATION_WARNING_VERTICAL_FEET/s,
+  );
   assert.match(simulator, /result\.add\(airborne\[i\]\.callsign\)/);
   assert.match(simulator, /result\.add\(airborne\[j\]\.callsign\)/);
   assert.match(
@@ -303,6 +308,12 @@ test("uses hollow aircraft targets without a forward heading line", async () => 
     css,
     /\.target-chevron\s*\{[^}]*background:\s*transparent/s,
   );
+  assert.match(css, /\.target-chevron\s*\{[^}]*border:\s*1px solid #fff/s);
+  assert.match(css, /\.target-chevron\s*\{[^}]*box-shadow:\s*none/s);
+  assert.match(
+    css,
+    /\.aircraft-target\.selected \.target-chevron\s*\{[^}]*border-color:\s*#fff/s,
+  );
   assert.match(
     css,
     /\.target-chevron::after,\s*\.target-chevron::before\s*\{[^}]*display:\s*none/s,
@@ -310,6 +321,14 @@ test("uses hollow aircraft targets without a forward heading line", async () => 
   assert.match(
     css,
     /\.aircraft-target\.conflict \.target-chevron\s*\{[^}]*background:\s*transparent/s,
+  );
+  assert.match(
+    css,
+    /\.aircraft-target\.conflict \.target-chevron\s*\{[^}]*border-color:\s*#ff7469/s,
+  );
+  assert.match(
+    css,
+    /\.aircraft-target\.conflict \.target-chevron\s*\{[^}]*box-shadow:\s*none/s,
   );
   assert.doesNotMatch(css, /\.target-chevron::after\s*\{\s*content:/s);
 });
