@@ -1782,6 +1782,17 @@ function altitudeLabel(altitude: number) {
   return String(Math.round(altitude / 100)).padStart(3, "0");
 }
 
+function altitudeTrendSymbol(flight: Aircraft) {
+  if (flight.targetAltitude > flight.altitude + 30) return "↑";
+  if (flight.targetAltitude < flight.altitude - 30) return "↓";
+  return "";
+}
+
+function altitudeTrendLabel(flight: Aircraft) {
+  const trend = altitudeTrendSymbol(flight);
+  return trend === "↑" ? "climbing" : trend === "↓" ? "descending" : "level";
+}
+
 function clearedHeading(flight: Aircraft) {
   return flight.departureHeading ?? flight.targetHeading;
 }
@@ -2277,7 +2288,7 @@ export function RadarSimulator() {
                       setCommand(`${flight.callsign} `);
                       inputRef.current?.focus();
                     }}
-                    aria-label={`Select ${flight.callsign}, altitude ${Math.round(flight.altitude)} feet, ground track ${Math.round(groundMotion.groundTrack)}${conflictedCallsigns.has(flight.callsign) ? ", separation warning" : ""}`}
+                    aria-label={`Select ${flight.callsign}, altitude ${Math.round(flight.altitude)} feet, ${altitudeTrendLabel(flight)}, ground track ${Math.round(groundMotion.groundTrack)}${conflictedCallsigns.has(flight.callsign) ? ", separation warning" : ""}`}
                   >
                     <span
                       className="target-chevron"
@@ -2289,7 +2300,8 @@ export function RadarSimulator() {
                     <span className="data-tag">
                       <strong>{flight.callsign}</strong>
                       <span>
-                        {altitudeLabel(flight.altitude)} ·{" "}
+                        {altitudeLabel(flight.altitude)}
+                        {altitudeTrendSymbol(flight)} ·{" "}
                         {Math.round(groundMotion.groundSpeed)}KT
                       </span>
                     </span>
@@ -2436,11 +2448,7 @@ export function RadarSimulator() {
                   <span className="strip-data">
                     <strong>
                       {altitudeLabel(flight.targetAltitude)}
-                      {flight.targetAltitude > flight.altitude + 30
-                        ? "↑"
-                        : flight.targetAltitude < flight.altitude - 30
-                          ? "↓"
-                          : ""}
+                      {altitudeTrendSymbol(flight)}
                     </strong>
                     <small>ALT</small>
                   </span>

@@ -343,6 +343,32 @@ test("uses hollow aircraft targets without a forward heading line", async () => 
   assert.doesNotMatch(css, /\.target-chevron::after\s*\{\s*content:/s);
 });
 
+test("shows climb and descent arrows beside radar altitude", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(simulator, /function altitudeTrendSymbol\(flight: Aircraft\)/);
+  assert.match(
+    simulator,
+    /flight\.targetAltitude > flight\.altitude \+ 30\) return "↑"/,
+  );
+  assert.match(
+    simulator,
+    /flight\.targetAltitude < flight\.altitude - 30\) return "↓"/,
+  );
+  assert.match(
+    simulator,
+    /\{altitudeLabel\(flight\.altitude\)\}\s*\{altitudeTrendSymbol\(flight\)\} ·/,
+  );
+  assert.match(simulator, /function altitudeTrendLabel\(flight: Aircraft\)/);
+  assert.match(
+    simulator,
+    /altitude \$\{Math\.round\(flight\.altitude\)\} feet, \$\{altitudeTrendLabel\(flight\)\}/,
+  );
+});
+
 test("fails on the third incorrect departure handoff", async () => {
   const simulator = await readFile(
     new URL("../app/simulator.tsx", import.meta.url),
