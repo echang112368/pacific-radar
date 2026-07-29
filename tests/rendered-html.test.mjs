@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
+async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", {
+    new Request(`http://localhost${pathname}`, {
       headers: { accept: "text/html" },
     }),
     {
@@ -23,20 +23,63 @@ async function render() {
   );
 }
 
-test("server-renders the Pacific Radar simulator", async () => {
+test("server-renders the Pacific Radar landing page and airport picker", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pacific Radar — Santa Monica Tower<\/title>/i);
+  assert.match(
+    html,
+    /<title>Pacific Radar — Air Traffic Control Simulator<\/title>/i,
+  );
+  assert.match(html, /Own the frequency/);
+  assert.match(html, /Choose your first frequency|Start local\. Earn the big scope/);
+  assert.match(html, /Santa Monica Municipal/);
+  assert.match(html, /href="\/airports\/ksmo"/);
+  assert.match(html, /Playable now/);
+  assert.match(html, /Coming next/);
+  assert.match(html, /Your first runway is only the beginning/);
+  assert.doesNotMatch(html, /codex-preview|starter loading skeleton/i);
+});
+
+test("server-renders the Santa Monica simulator at its airport route", async () => {
+  const response = await render("/airports/ksmo");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+
+  const html = await response.text();
+  assert.match(html, /<title>Santa Monica Tower — Pacific Radar<\/title>/i);
   assert.match(html, /SMO TOWER · 35 NM TERMINAL SCOPE/);
   assert.match(html, /Active control/);
   assert.match(html, /0(?:<!-- -->)? active/);
   assert.match(html, /Scope clear · Traffic will build gradually/);
   assert.doesNotMatch(html, /RWY 21 · HOLD SHORT · TO MALIBU/);
   assert.match(html, /track-layer/);
+  assert.match(html, /aria-label="Return to Pacific Radar home"/);
   assert.doesNotMatch(html, /codex-preview|starter loading skeleton/i);
+});
+
+test("defines the landing page sections and responsive airport cards", async () => {
+  const [page, css, route] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/airports/ksmo/page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /id="airports"/);
+  assert.match(page, /id="how-it-works"/);
+  assert.match(page, /id="progression"/);
+  assert.match(page, /href="\/airports\/ksmo"/);
+  assert.match(page, /const airports = \[/);
+  assert.match(page, /status: "Playable now"/);
+  assert.match(page, /status: "Coming next"/);
+  assert.match(page, /status: "Planned"/);
+  assert.match(route, /<RadarSimulator \/>/);
+  assert.match(css, /\.landing-page/);
+  assert.match(css, /\.airport-grid/);
+  assert.match(css, /\.landing-scope/);
+  assert.match(css, /@media \(max-width: 620px\)/);
 });
 
 test("includes terminal-scope completion and handoff behavior", async () => {

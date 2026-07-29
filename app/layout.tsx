@@ -18,9 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
   const imageUrl = host ? `${protocol}://${host}/og.png` : undefined;
-  const title = "Pacific Radar — Santa Monica Tower";
+  const title = "Pacific Radar — Air Traffic Control Simulator";
   const description =
-    "Control arrivals and departures across a 35 NM satellite radar scope at Santa Monica Municipal Airport.";
+    "Control live terminal airspace, master real ATC commands, and progress from a local runway to major international airports.";
 
   return {
     title,

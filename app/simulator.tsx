@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type FlightKind = "arrival" | "departure";
@@ -2100,7 +2101,7 @@ export function RadarSimulator() {
   return (
     <main className="sim-shell">
       <header className="top-bar">
-        <div className="brand-block">
+        <Link className="brand-block" href="/" aria-label="Return to Pacific Radar home">
           <div className="brand-mark" aria-hidden="true">
             PR
           </div>
@@ -2108,7 +2109,7 @@ export function RadarSimulator() {
             <p className="eyebrow">PACIFIC RADAR · PHASE 0</p>
             <h1>Santa Monica Tower</h1>
           </div>
-        </div>
+        </Link>
         <div className="status-ribbon" aria-label="Airport conditions">
           <div>
             <span>FIELD</span>
