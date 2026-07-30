@@ -2622,3 +2622,366 @@ h2 {
     font-size: 8px;
   }
 }
+
+/* Game home menu */
+
+.game-menu-page {
+  min-height: 100vh;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 64px 1fr 44px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background:
+    linear-gradient(rgba(96, 242, 189, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(96, 242, 189, 0.025) 1px, transparent 1px),
+    #07120f;
+  background-size: 64px 64px;
+  color: #eaf4ef;
+}
+
+.game-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 max(24px, calc((100vw - 1180px) / 2));
+  border-bottom: 1px solid rgba(181, 243, 217, 0.14);
+  background: #081512;
+}
+
+.game-menu-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.game-menu-brand > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(96, 242, 189, 0.52);
+  color: var(--mint-strong);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.game-menu-brand strong,
+.game-menu-brand small {
+  display: block;
+}
+
+.game-menu-brand strong {
+  color: #e9f5ef;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.13em;
+}
+
+.game-menu-brand small {
+  margin-top: 2px;
+  color: #718d82;
+  font-size: 8px;
+}
+
+.game-menu-version {
+  color: #587167;
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.12em;
+}
+
+.airport-menu {
+  width: min(calc(100% - 48px), 1180px);
+  align-self: center;
+  margin: 0 auto;
+  padding: 42px 0;
+}
+
+.airport-menu-heading {
+  margin-bottom: 28px;
+}
+
+.airport-menu-heading > p {
+  margin: 0 0 8px;
+  color: var(--mint-strong);
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+}
+
+.airport-menu-heading h1 {
+  margin: 0;
+  color: #eff8f4;
+  font-size: 34px;
+  font-weight: 620;
+  letter-spacing: -0.04em;
+}
+
+.airport-menu-heading > span {
+  display: block;
+  margin-top: 8px;
+  color: #839d93;
+  font-size: 11px;
+}
+
+.airport-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.airport-menu-card {
+  overflow: hidden;
+  border: 1px solid rgba(181, 243, 217, 0.16);
+  background: #0b1a16;
+}
+
+.airport-menu-card.available {
+  border-color: rgba(96, 242, 189, 0.55);
+}
+
+.airport-menu-card.locked {
+  opacity: 0.58;
+}
+
+.airport-menu-map {
+  position: relative;
+  height: 166px;
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(6, 21, 17, 0.26), rgba(6, 21, 17, 0.72)),
+    url("/ksmo-terminal-satellite.jpg") center / cover;
+}
+
+.airport-menu-card:nth-child(2) .airport-menu-map {
+  filter: saturate(0.45);
+  background-position: 35% 42%;
+}
+
+.airport-menu-card:nth-child(3) .airport-menu-map {
+  filter: saturate(0.35);
+  background-position: 80% 70%;
+}
+
+.airport-menu-map::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(181, 243, 217, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(181, 243, 217, 0.055) 1px, transparent 1px);
+  background-size: 44px 44px;
+  content: "";
+}
+
+.airport-menu-number,
+.airport-menu-status {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  padding: 6px 8px;
+  border: 1px solid rgba(181, 243, 217, 0.2);
+  background: rgba(5, 17, 14, 0.85);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.airport-menu-number {
+  left: 12px;
+  color: #769187;
+}
+
+.airport-menu-status {
+  right: 12px;
+  color: var(--mint-strong);
+}
+
+.locked .airport-menu-status {
+  color: #8ba097;
+}
+
+.airport-menu-runway {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 54%;
+  width: 104px;
+  height: 10px;
+  border: 2px solid rgba(222, 255, 243, 0.88);
+  transform: translate(-50%, -50%) rotate(-46deg);
+}
+
+.airport-menu-card:nth-child(2) .airport-menu-runway {
+  transform: translate(-50%, -50%) rotate(-8deg);
+}
+
+.airport-menu-card:nth-child(3) .airport-menu-runway {
+  width: 128px;
+  transform: translate(-50%, -50%) rotate(4deg);
+}
+
+.airport-menu-details {
+  padding: 20px;
+}
+
+.airport-menu-details > p {
+  margin: 0 0 9px;
+  color: #6f8b80;
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.airport-menu-name {
+  min-height: 43px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.airport-menu-name h2 {
+  margin: 0;
+  color: #ebf6f1;
+  font-family: var(--mono);
+  font-size: 23px;
+  letter-spacing: -0.04em;
+}
+
+.airport-menu-name span {
+  overflow: hidden;
+  color: #a8bdb4;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.airport-menu-details dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 10px 0 19px;
+  padding: 13px 0;
+  border-top: 1px solid rgba(181, 243, 217, 0.1);
+  border-bottom: 1px solid rgba(181, 243, 217, 0.1);
+}
+
+.airport-menu-details dt {
+  color: #5f7b70;
+  font-family: var(--mono);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.airport-menu-details dd {
+  margin: 5px 0 0;
+  color: #c5d8d0;
+  font-family: var(--mono);
+  font-size: 8px;
+}
+
+.airport-menu-launch,
+.airport-menu-disabled {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 13px;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.airport-menu-launch {
+  border: 1px solid var(--mint-strong);
+  background: var(--mint-strong);
+  color: #06110d;
+  text-decoration: none;
+  transition: background 150ms ease;
+}
+
+.airport-menu-launch:hover {
+  background: #9df8d6;
+}
+
+.airport-menu-disabled {
+  border: 1px solid rgba(181, 243, 217, 0.12);
+  color: #667e75;
+}
+
+.game-menu-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 max(24px, calc((100vw - 1180px) / 2));
+  border-top: 1px solid rgba(181, 243, 217, 0.1);
+  background: #07110e;
+  color: #5d776d;
+  font-family: var(--mono);
+  font-size: 7px;
+}
+
+@media (max-width: 860px) {
+  .game-menu-page {
+    height: auto;
+    min-height: 100vh;
+    grid-template-rows: 64px 1fr 44px;
+  }
+
+  .airport-menu {
+    align-self: start;
+  }
+
+  .airport-menu-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .airport-menu-card {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.15fr);
+  }
+
+  .airport-menu-map {
+    height: 100%;
+    min-height: 210px;
+  }
+}
+
+@media (max-width: 620px) {
+  .game-menu-header {
+    padding: 0 16px;
+  }
+
+  .game-menu-brand small {
+    display: none;
+  }
+
+  .airport-menu {
+    width: calc(100% - 32px);
+    padding: 34px 0;
+  }
+
+  .airport-menu-heading h1 {
+    font-size: 29px;
+  }
+
+  .airport-menu-card {
+    display: block;
+  }
+
+  .airport-menu-map {
+    height: 150px;
+    min-height: 0;
+  }
+
+  .game-menu-footer {
+    padding: 0 16px;
+  }
+
+  .game-menu-footer span:last-child {
+    display: none;
+  }
+}

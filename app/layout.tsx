@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const imageUrl = host ? `${protocol}://${host}/og.png` : undefined;
   const title = "Pacific Radar — Air Traffic Control Simulator";
   const description =
-    "Control live terminal airspace, master real ATC commands, and progress from a local runway to major international airports.";
+    "Choose an airport and play Pacific Radar, a browser-based air traffic control simulator.";
 
   return {
     title,

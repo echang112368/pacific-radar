@@ -23,7 +23,7 @@ async function render(pathname = "/") {
   );
 }
 
-test("server-renders the Pacific Radar landing page and airport picker", async () => {
+test("server-renders a simple Pacific Radar airport selection menu", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -33,13 +33,14 @@ test("server-renders the Pacific Radar landing page and airport picker", async (
     html,
     /<title>Pacific Radar — Air Traffic Control Simulator<\/title>/i,
   );
-  assert.match(html, /Own the frequency/);
-  assert.match(html, /Choose your first frequency|Start local\. Earn the big scope/);
+  assert.match(html, /Select an airport/);
+  assert.match(html, /Choose an airport to begin your shift/);
   assert.match(html, /Santa Monica Municipal/);
   assert.match(html, /href="\/airports\/ksmo"/);
-  assert.match(html, /Playable now/);
-  assert.match(html, /Coming next/);
-  assert.match(html, /Your first runway is only the beginning/);
+  assert.match(html, /Launch game/);
+  assert.match(html, /Not yet available/);
+  assert.doesNotMatch(html, /Own the frequency|Shape the airspace/);
+  assert.doesNotMatch(html, /THE CONTROLLER LOOP|CAREER PROGRESSION/);
   assert.doesNotMatch(html, /codex-preview|starter loading skeleton/i);
 });
 
@@ -60,25 +61,23 @@ test("server-renders the Santa Monica simulator at its airport route", async () 
   assert.doesNotMatch(html, /codex-preview|starter loading skeleton/i);
 });
 
-test("defines the landing page sections and responsive airport cards", async () => {
+test("defines the game menu and responsive airport cards", async () => {
   const [page, css, route] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/airports/ksmo/page.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /id="airports"/);
-  assert.match(page, /id="how-it-works"/);
-  assert.match(page, /id="progression"/);
-  assert.match(page, /href="\/airports\/ksmo"/);
+  assert.match(page, /href:\s*"\/airports\/ksmo"/);
   assert.match(page, /const airports = \[/);
-  assert.match(page, /status: "Playable now"/);
-  assert.match(page, /status: "Coming next"/);
-  assert.match(page, /status: "Planned"/);
+  assert.match(page, /status: "Available"/);
+  assert.match(page, /status: "Locked"/);
+  assert.match(page, /Launch game/);
+  assert.doesNotMatch(page, /Own the frequency/);
   assert.match(route, /<RadarSimulator \/>/);
-  assert.match(css, /\.landing-page/);
-  assert.match(css, /\.airport-grid/);
-  assert.match(css, /\.landing-scope/);
+  assert.match(css, /\.game-menu-page/);
+  assert.match(css, /\.airport-menu-grid/);
+  assert.match(css, /\.airport-menu-launch/);
   assert.match(css, /@media \(max-width: 620px\)/);
 });
 
