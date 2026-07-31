@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireChatGPTUser } from "../../chatgpt-auth";
+import { requireSession } from "../../../lib/auth-server";
 import { RadarSimulator } from "../../simulator";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +11,6 @@ export const metadata: Metadata = {
 };
 
 export default async function SantaMonicaAirport() {
-  await requireChatGPTUser("/airports/ksmo");
+  await requireSession();
   return <RadarSimulator />;
 }

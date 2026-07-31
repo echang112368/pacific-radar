@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
+import { authClient } from "../lib/auth-client";
 
 const AIRPORTS = [
   {
@@ -36,13 +37,9 @@ const AIRPORTS = [
 
 type AirportCarouselProps = {
   displayName: string;
-  signOutHref: string;
 };
 
-export function AirportCarousel({
-  displayName,
-  signOutHref,
-}: AirportCarouselProps) {
+export function AirportCarousel({ displayName }: AirportCarouselProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const airport = AIRPORTS[selectedIndex];
   const href = "href" in airport ? airport.href : null;
@@ -71,7 +68,15 @@ export function AirportCarousel({
         </div>
         <nav aria-label="Player account">
           <span>{displayName}</span>
-          <a href={signOutHref}>Log out</a>
+          <button
+            onClick={async () => {
+              await authClient.signOut();
+              window.location.href = "/";
+            }}
+            type="button"
+          >
+            Log out
+          </button>
         </nav>
       </header>
 

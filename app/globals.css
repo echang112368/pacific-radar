@@ -3059,21 +3059,22 @@ h2 {
   letter-spacing: 0.14em;
 }
 
-.login-home-header > a,
-.airport-select-header nav a {
+.login-home-header > button,
+.airport-select-header nav button {
   min-height: 34px;
   display: inline-flex;
   align-items: center;
   padding: 0 14px;
   border: 1px solid rgba(181, 243, 217, 0.24);
+  background: transparent;
   color: #c7d9d2;
   font-size: 9px;
   font-weight: 700;
-  text-decoration: none;
+  cursor: pointer;
 }
 
-.login-home-header > a:hover,
-.airport-select-header nav a:hover {
+.login-home-header > button:hover,
+.airport-select-header nav button:hover {
   border-color: var(--mint-strong);
   color: var(--mint-strong);
 }
@@ -3186,29 +3187,153 @@ h2 {
 }
 
 .login-card h2 {
-  margin: 0 0 28px;
+  margin: 0 0 20px;
   color: #edf7f2;
   font-size: 28px;
   font-weight: 650;
   letter-spacing: -0.04em;
 }
 
+.auth-mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(181, 243, 217, 0.16);
+}
+
+.auth-mode-tabs button {
+  min-height: 36px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #718c82;
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.auth-mode-tabs button.is-active {
+  border-bottom-color: var(--mint-strong);
+  color: var(--mint-strong);
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-form > label:not(.auth-remember) {
+  display: grid;
+  gap: 7px;
+  color: #9db2aa;
+  font-family: var(--mono);
+  font-size: 7px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.auth-form input:not([type="checkbox"]) {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(181, 243, 217, 0.2);
+  border-radius: 0;
+  outline: 0;
+  background: rgba(2, 11, 8, 0.76);
+  color: #edf7f2;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: none;
+}
+
+.auth-form input:not([type="checkbox"])::placeholder {
+  color: #4e675e;
+}
+
+.auth-form input:not([type="checkbox"]):focus {
+  border-color: var(--mint-strong);
+  box-shadow: 0 0 0 2px rgba(96, 242, 189, 0.08);
+}
+
+.auth-form input:disabled,
+.auth-form button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.auth-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: #91a79e;
+  font-family: var(--mono);
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.auth-remember input {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--mint-strong);
+}
+
+.auth-error {
+  margin: 0;
+  padding: 9px 10px;
+  border-left: 2px solid #ff7b70;
+  background: rgba(122, 30, 27, 0.2);
+  color: #ffaaa2;
+  font-family: var(--mono);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
 .login-button {
+  width: 100%;
   min-height: 50px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 17px;
   border: 1px solid var(--mint-strong);
+  border-radius: 0;
   background: var(--mint-strong);
   color: #06110d;
   font-size: 10px;
   font-weight: 800;
-  text-decoration: none;
+  cursor: pointer;
 }
 
 .login-button:hover {
   background: #a1f9d8;
+}
+
+.login-card > .auth-footnote {
+  margin: 18px 0 0;
+  color: #779087;
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.auth-footnote button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mint-strong);
+  font: inherit;
+  cursor: pointer;
+}
+
+.auth-footnote button:hover {
+  text-decoration: underline;
 }
 
 .airport-select-screen {

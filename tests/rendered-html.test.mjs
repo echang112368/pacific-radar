@@ -2,101 +2,84 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-const AUTH_HEADERS = {
-  "oai-authenticated-user-email": "controller@example.com",
-  "oai-authenticated-user-full-name": "Test%20Controller",
-  "oai-authenticated-user-full-name-encoding": "percent-encoded-utf-8",
-};
+test("renders a native Pacific Radar email and password screen", async () => {
+  const [authGate, layout] = await Promise.all([
+    readFile(new URL("../app/auth-gate.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+  ]);
 
-async function render(pathname = "/", requestHeaders = {}) {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-
-  return worker.fetch(
-    new Request(`http://localhost${pathname}`, {
-      headers: { accept: "text/html", ...requestHeaders },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
-}
-
-test("server-renders the simple Pacific Radar sign-in screen", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-
-  const html = await response.text();
-  assert.match(
-    html,
-    /<title>Pacific Radar — Air Traffic Control Simulator<\/title>/i,
-  );
-  assert.match(html, /PACIFIC RADAR/);
-  assert.match(html, /Sign in to play/);
-  assert.match(html, /Continue with ChatGPT/);
-  assert.match(html, /signin-with-chatgpt/);
-  assert.doesNotMatch(html, /Select an airport/);
-  assert.doesNotMatch(html, /Own the frequency|Shape the airspace/);
-  assert.doesNotMatch(html, /codex-preview|starter loading skeleton/i);
+  assert.match(layout, /Pacific Radar — Air Traffic Control Simulator/);
+  assert.match(authGate, /PACIFIC RADAR/);
+  assert.match(authGate, /Sign in to play/);
+  assert.match(authGate, /type="email"/);
+  assert.match(authGate, /autoComplete="email"/);
+  assert.match(authGate, /type="password"/);
+  assert.match(authGate, /"current-password"/);
+  assert.match(authGate, /Sign up/);
+  assert.match(authGate, /Create one/);
+  assert.doesNotMatch(authGate, /Continue with ChatGPT|signin-with-chatgpt/);
 });
 
-test("server-renders the airport carousel for a signed-in player", async () => {
-  const response = await render("/", AUTH_HEADERS);
-  assert.equal(response.status, 200);
+test("redirects anonymous players before loading simulator state", async () => {
+  const [authServer, route] = await Promise.all([
+    readFile(new URL("../lib/auth-server.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/airports/ksmo/page.tsx", import.meta.url), "utf8"),
+  ]);
 
-  const html = await response.text();
-  assert.match(html, /SELECT AIRPORT/);
-  assert.match(html, /Santa Monica Municipal/);
-  assert.match(html, /href="\/airports\/ksmo"/);
-  assert.match(html, />Play</);
-  assert.match(html, /Test Controller/);
-  assert.match(html, /Previous airport/);
-  assert.match(html, /Next airport/);
-  assert.doesNotMatch(html, /avatar/i);
+  assert.match(authServer, /if \(!getSessionCookie\(requestHeaders\)\) return null/);
+  assert.match(authServer, /if \(!session\) redirect\("\/"\)/);
+  assert.match(route, /await requireSession\(\)/);
 });
 
-test("server-renders the Santa Monica simulator at its airport route", async () => {
-  const response = await render("/airports/ksmo", AUTH_HEADERS);
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-
-  const html = await response.text();
-  assert.match(html, /<title>Santa Monica Tower — Pacific Radar<\/title>/i);
-  assert.match(html, /SMO TOWER · 35 NM TERMINAL SCOPE/);
-  assert.match(html, /Active control/);
-  assert.match(html, /0(?:<!-- -->)? active/);
-  assert.match(html, /Scope clear · Traffic will build gradually/);
-  assert.doesNotMatch(html, /RWY 21 · HOLD SHORT · TO MALIBU/);
-  assert.match(html, /track-layer/);
-  assert.match(html, /aria-label="Return to Pacific Radar home"/);
-  assert.doesNotMatch(html, /codex-preview|starter loading skeleton/i);
-});
-
-test("redirects anonymous players before entering the simulator", async () => {
-  const response = await render("/airports/ksmo");
-  assert.ok([302, 303, 307, 308].includes(response.status));
-  assert.match(response.headers.get("location") ?? "", /signin-with-chatgpt/);
-});
-
-test("defines authenticated entry and a keyboard-accessible airport carousel", async () => {
-  const [page, carousel, css, route] = await Promise.all([
+test("defines database-backed auth and a keyboard-accessible airport carousel", async () => {
+  const [
+    page,
+    authGate,
+    authServer,
+    authConfig,
+    authRoute,
+    schema,
+    migration,
+    carousel,
+    css,
+    route,
+  ] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/auth-gate.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/auth-server.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/auth.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/auth/[...all]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0000_flowery_omega_flight.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/airport-carousel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/airports/ksmo/page.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /getChatGPTUser/);
-  assert.match(page, /chatGPTSignInPath/);
-  assert.match(page, /<AirportCarousel/);
+  assert.match(page, /<AuthGate \/>/);
+  assert.match(authGate, /authClient\.useSession\(\)/);
+  assert.match(authGate, /authClient\.signIn\.email/);
+  assert.match(authGate, /authClient\.signUp\.email/);
+  assert.match(authGate, /type="email"/);
+  assert.match(authGate, /type="password"/);
+  assert.match(authGate, /minLength=\{10\}/);
+  assert.match(authGate, /<AirportCarousel displayName=/);
+  assert.match(authServer, /getSessionCookie/);
+  assert.match(authServer, /createAuth\(\)\.api\.getSession/);
+  assert.match(authConfig, /drizzleAdapter\(getDb\(\)/);
+  assert.match(authConfig, /emailAndPassword:\s*\{\s*enabled: true/s);
+  assert.match(authConfig, /storage: "database"/);
+  assert.match(authConfig, /"\/sign-in\/email"/);
+  assert.match(authRoute, /export async function GET/);
+  assert.match(authRoute, /export async function POST/);
+  assert.match(schema, /export const user = sqliteTable/);
+  assert.match(schema, /export const session = sqliteTable/);
+  assert.match(schema, /export const account = sqliteTable/);
+  assert.match(schema, /export const rateLimit = sqliteTable/);
+  assert.match(migration, /CREATE TABLE `user`/);
+  assert.match(migration, /CREATE TABLE `session`/);
+  assert.match(migration, /CREATE TABLE `account`/);
+  assert.match(migration, /CREATE TABLE `rate_limit`/);
   assert.match(carousel, /href: "\/airports\/ksmo"/);
   assert.match(carousel, /const AIRPORTS = \[/);
   assert.match(carousel, /status: "AVAILABLE"/);
@@ -105,9 +88,12 @@ test("defines authenticated entry and a keyboard-accessible airport carousel", a
   assert.match(carousel, /event\.key === "ArrowRight"/);
   assert.match(carousel, /aria-label="Previous airport"/);
   assert.match(carousel, /aria-label="Next airport"/);
+  assert.match(carousel, /authClient\.signOut\(\)/);
   assert.match(route, /<RadarSimulator \/>/);
-  assert.match(route, /requireChatGPTUser\("\/airports\/ksmo"\)/);
+  assert.match(route, /await requireSession\(\)/);
   assert.match(css, /\.login-home/);
+  assert.match(css, /\.auth-form/);
+  assert.match(css, /\.auth-error/);
   assert.match(css, /\.airport-carousel-stage/);
   assert.match(css, /\.airport-play-button/);
   assert.match(css, /@media \(max-width: 620px\)/);
