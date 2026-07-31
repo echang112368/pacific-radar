@@ -2,14 +2,20 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render(pathname = "/") {
+const AUTH_HEADERS = {
+  "oai-authenticated-user-email": "controller@example.com",
+  "oai-authenticated-user-full-name": "Test%20Controller",
+  "oai-authenticated-user-full-name-encoding": "percent-encoded-utf-8",
+};
+
+async function render(pathname = "/", requestHeaders = {}) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
     new Request(`http://localhost${pathname}`, {
-      headers: { accept: "text/html" },
+      headers: { accept: "text/html", ...requestHeaders },
     }),
     {
       ASSETS: {
@@ -23,7 +29,7 @@ async function render(pathname = "/") {
   );
 }
 
-test("server-renders a simple Pacific Radar airport selection menu", async () => {
+test("server-renders the simple Pacific Radar sign-in screen", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -33,19 +39,32 @@ test("server-renders a simple Pacific Radar airport selection menu", async () =>
     html,
     /<title>Pacific Radar — Air Traffic Control Simulator<\/title>/i,
   );
-  assert.match(html, /Select an airport/);
-  assert.match(html, /Choose an airport to begin your shift/);
-  assert.match(html, /Santa Monica Municipal/);
-  assert.match(html, /href="\/airports\/ksmo"/);
-  assert.match(html, /Launch game/);
-  assert.match(html, /Not yet available/);
+  assert.match(html, /PACIFIC RADAR/);
+  assert.match(html, /Sign in to play/);
+  assert.match(html, /Continue with ChatGPT/);
+  assert.match(html, /signin-with-chatgpt/);
+  assert.doesNotMatch(html, /Select an airport/);
   assert.doesNotMatch(html, /Own the frequency|Shape the airspace/);
-  assert.doesNotMatch(html, /THE CONTROLLER LOOP|CAREER PROGRESSION/);
   assert.doesNotMatch(html, /codex-preview|starter loading skeleton/i);
 });
 
+test("server-renders the airport carousel for a signed-in player", async () => {
+  const response = await render("/", AUTH_HEADERS);
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /SELECT AIRPORT/);
+  assert.match(html, /Santa Monica Municipal/);
+  assert.match(html, /href="\/airports\/ksmo"/);
+  assert.match(html, />Play</);
+  assert.match(html, /Test Controller/);
+  assert.match(html, /Previous airport/);
+  assert.match(html, /Next airport/);
+  assert.doesNotMatch(html, /avatar/i);
+});
+
 test("server-renders the Santa Monica simulator at its airport route", async () => {
-  const response = await render("/airports/ksmo");
+  const response = await render("/airports/ksmo", AUTH_HEADERS);
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
@@ -61,23 +80,36 @@ test("server-renders the Santa Monica simulator at its airport route", async () 
   assert.doesNotMatch(html, /codex-preview|starter loading skeleton/i);
 });
 
-test("defines the game menu and responsive airport cards", async () => {
-  const [page, css, route] = await Promise.all([
+test("redirects anonymous players before entering the simulator", async () => {
+  const response = await render("/airports/ksmo");
+  assert.ok([302, 303, 307, 308].includes(response.status));
+  assert.match(response.headers.get("location") ?? "", /signin-with-chatgpt/);
+});
+
+test("defines authenticated entry and a keyboard-accessible airport carousel", async () => {
+  const [page, carousel, css, route] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/airport-carousel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/airports/ksmo/page.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /href:\s*"\/airports\/ksmo"/);
-  assert.match(page, /const airports = \[/);
-  assert.match(page, /status: "Available"/);
-  assert.match(page, /status: "Locked"/);
-  assert.match(page, /Launch game/);
-  assert.doesNotMatch(page, /Own the frequency/);
+  assert.match(page, /getChatGPTUser/);
+  assert.match(page, /chatGPTSignInPath/);
+  assert.match(page, /<AirportCarousel/);
+  assert.match(carousel, /href: "\/airports\/ksmo"/);
+  assert.match(carousel, /const AIRPORTS = \[/);
+  assert.match(carousel, /status: "AVAILABLE"/);
+  assert.match(carousel, /status: "LOCKED"/);
+  assert.match(carousel, /event\.key === "ArrowLeft"/);
+  assert.match(carousel, /event\.key === "ArrowRight"/);
+  assert.match(carousel, /aria-label="Previous airport"/);
+  assert.match(carousel, /aria-label="Next airport"/);
   assert.match(route, /<RadarSimulator \/>/);
-  assert.match(css, /\.game-menu-page/);
-  assert.match(css, /\.airport-menu-grid/);
-  assert.match(css, /\.airport-menu-launch/);
+  assert.match(route, /requireChatGPTUser\("\/airports\/ksmo"\)/);
+  assert.match(css, /\.login-home/);
+  assert.match(css, /\.airport-carousel-stage/);
+  assert.match(css, /\.airport-play-button/);
   assert.match(css, /@media \(max-width: 620px\)/);
 });
 
