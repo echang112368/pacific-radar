@@ -123,6 +123,35 @@ test("uses the playable KSMO scope geometry in the airport preview", async () =>
   assert.doesNotMatch(css, /\.airport-focus-runway/);
 });
 
+test("offers a complete keyboard-accessible how-to-play briefing", async () => {
+  const [carousel, css] = await Promise.all([
+    readFile(new URL("../app/airport-carousel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(carousel, />\s*How to play\s*<\/button>/);
+  assert.match(carousel, /showHowToPlay/);
+  assert.match(carousel, /event\.key === "Escape"/);
+  assert.match(carousel, /aria-modal="true"/);
+  assert.match(carousel, /role="dialog"/);
+  assert.match(carousel, /aria-label="Close how to play"/);
+  assert.match(carousel, /event\.currentTarget === event\.target/);
+  assert.match(carousel, /at least 2 NM/);
+  assert.match(carousel, /1,000 feet vertically/);
+  assert.match(carousel, /inside 500 feet laterally and vertically/);
+  assert.match(carousel, /third incorrect handoff ends the shift/);
+  assert.match(carousel, /3,000 feet AGL or lower/);
+  assert.match(carousel, /N4382K C 5 C MALIBU T/);
+  assert.match(carousel, /HELP · SCALE · STATS · EXIT/);
+  assert.match(carousel, /HDG, ALT, DIRECT, SPEED, APP, LAND, HOLD, ABORT, TAXI, and QUIT/);
+  assert.match(carousel, /Commands remain available/);
+  assert.match(carousel, /\+100 safe landing/);
+  assert.match(css, /\.how-to-play-trigger/);
+  assert.match(css, /\.how-to-backdrop/);
+  assert.match(css, /\.how-to-command-grid/);
+  assert.match(css, /\.how-to-rule-grid/);
+});
+
 test("includes terminal-scope completion and handoff behavior", async () => {
   const [simulator, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import { KSMO_RUNWAY } from "../lib/ksmo-airport";
 
@@ -36,12 +36,64 @@ const AIRPORTS = [
   },
 ] as const;
 
+const HOW_TO_PLAY_COMMANDS = [
+  {
+    command: "N172SP C 035",
+    description: "Turn to heading 035°. Three-digit headings require leading zeros.",
+  },
+  {
+    command: "N172SP C 3",
+    description: "Climb or descend to 3,000 feet. One or two digits mean thousands.",
+  },
+  {
+    command: "N172SP C 14 EX",
+    description: "Climb or descend to 14,000 feet at twice the normal vertical rate.",
+  },
+  {
+    command: "N172SP C SMO L",
+    description: "Fly direct to SMO with a forced left turn. R forces a right turn.",
+  },
+  {
+    command: "N172SP S 100",
+    description: "Set the aircraft speed to 100 knots.",
+  },
+  {
+    command: "N172SP L 21",
+    description: "Intercept the Runway 21 centerline and land when eligible.",
+  },
+  {
+    command: "N4382K W",
+    description: "Line up and wait. LW and LUAW are accepted aliases.",
+  },
+  {
+    command: "N4382K T",
+    description: "Clear a departure for takeoff after assigning its altitude.",
+  },
+  {
+    command: "N172SP H SMO",
+    description: "Hold an airborne aircraft at the named fix.",
+  },
+  {
+    command: "N172SP A",
+    description: "Abort a takeoff or send an approach aircraft around.",
+  },
+  {
+    command: "N4382K C 5 C MALIBU T",
+    description: "Chain altitude, route, and takeoff instructions in one transmission.",
+  },
+  {
+    command: "HELP · SCALE · STATS · EXIT",
+    description: "Open help, toggle range scale, review performance, or end the shift.",
+  },
+] as const;
+
 type AirportCarouselProps = {
   displayName: string;
 };
 
 export function AirportCarousel({ displayName }: AirportCarouselProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
   const airport = AIRPORTS[selectedIndex];
   const href = "href" in airport ? airport.href : null;
 
@@ -51,10 +103,21 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
     });
   }, []);
 
+  useEffect(() => {
+    if (!showHowToPlay) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowHowToPlay(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [showHowToPlay]);
+
   return (
     <main
       className={`airport-select-screen airport-${airport.code.toLowerCase()}`}
       onKeyDown={(event) => {
+        if (showHowToPlay) return;
         if (event.key === "ArrowLeft") moveSelection(-1);
         if (event.key === "ArrowRight") moveSelection(1);
       }}
@@ -67,7 +130,15 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
           <span aria-hidden="true">PR</span>
           <strong>PACIFIC RADAR</strong>
         </div>
-        <nav aria-label="Player account">
+        <nav aria-label="Game and player controls">
+          <button
+            className="how-to-play-trigger"
+            onClick={() => setShowHowToPlay(true)}
+            type="button"
+          >
+            <span aria-hidden="true">?</span>
+            How to play
+          </button>
           <span>{displayName}</span>
           <button
             onClick={async () => {
@@ -216,6 +287,156 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
         <span>Use ← → to change airport</span>
         <span>{selectedIndex + 1} / {AIRPORTS.length}</span>
       </footer>
+
+      {showHowToPlay ? (
+        <div
+          className="modal-backdrop how-to-backdrop"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) setShowHowToPlay(false);
+          }}
+          role="presentation"
+        >
+          <section
+            aria-describedby="how-to-play-intro"
+            aria-labelledby="how-to-play-title"
+            aria-modal="true"
+            className="command-modal how-to-modal"
+            role="dialog"
+          >
+            <div className="modal-header how-to-header">
+              <div>
+                <p className="eyebrow">CONTROLLER BRIEFING</p>
+                <h2 id="how-to-play-title">How to play</h2>
+              </div>
+              <button
+                aria-label="Close how to play"
+                autoFocus
+                onClick={() => setShowHowToPlay(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+
+            <p className="modal-intro" id="how-to-play-intro">
+              Route arriving and departing aircraft safely, land arrivals, and
+              hand departures to nearby airspace through their assigned exit fix.
+              Traffic gradually becomes busier as the shift continues.
+            </p>
+
+            <div className="how-to-rule-grid">
+              <article>
+                <span>01</span>
+                <div>
+                  <h3>Maintain separation</h3>
+                  <p>
+                    Aircraft are safely separated when they have at least 2 NM
+                    laterally or 1,000 feet vertically. Targets turn red only
+                    when both minimums are lost.
+                  </p>
+                </div>
+              </article>
+              <article>
+                <span>02</span>
+                <div>
+                  <h3>Complete each flight</h3>
+                  <p>
+                    Arrivals score after landing and stopping on the runway.
+                    Departures score after reaching their assigned edge fix at
+                    least 4,000 feet above the airport.
+                  </p>
+                </div>
+              </article>
+              <article>
+                <span>03</span>
+                <div>
+                  <h3>Avoid shift-ending failures</h3>
+                  <p>
+                    A collision occurs inside 500 feet laterally and vertically.
+                    A collision or the third incorrect handoff ends the shift.
+                  </p>
+                </div>
+              </article>
+              <article>
+                <span>04</span>
+                <div>
+                  <h3>Use Runway 03/21 correctly</h3>
+                  <p>
+                    Departures need an altitude before takeoff. Landing clearance
+                    requires 3,000 feet AGL or lower and a heading within 60° of
+                    the selected runway centerline.
+                  </p>
+                </div>
+              </article>
+            </div>
+
+            <div className="how-to-command-heading">
+              <div>
+                <p className="eyebrow">COMMAND REFERENCE</p>
+                <h3>Callsign + command + value</h3>
+              </div>
+              <code>FLIGHTID C 035</code>
+            </div>
+
+            <div className="command-grid how-to-command-grid">
+              {HOW_TO_PLAY_COMMANDS.map((item) => (
+                <div key={item.command}>
+                  <code>{item.command}</code>
+                  <span>{item.description}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="how-to-notes">
+              <article>
+                <strong>Departure flow</strong>
+                <p>
+                  Assign an altitude, optionally assign an exit fix or heading,
+                  then use W to line up and wait or T to begin the full takeoff
+                  sequence. Aircraft remain on runway heading until safely clear.
+                </p>
+              </article>
+              <article>
+                <strong>Arrival flow</strong>
+                <p>
+                  Descend, control speed, vector toward Runway 03 or 21, and issue
+                  the landing clearance before the aircraft passes the centerline.
+                </p>
+              </article>
+              <article>
+                <strong>Planning while paused</strong>
+                <p>
+                  Pausing freezes traffic and the clock. Commands remain available
+                  and are queued in order for the aircraft to follow after resume.
+                </p>
+              </article>
+              <article>
+                <strong>Accepted long forms</strong>
+                <p>
+                  HDG, ALT, DIRECT, SPEED, APP, LAND, HOLD, ABORT, TAXI, and QUIT
+                  are accepted alongside the compact controller shorthand shown
+                  above.
+                </p>
+              </article>
+            </div>
+
+            <div className="how-to-score-note">
+              <strong>Scoring</strong>
+              <span>+100 safe landing</span>
+              <span>+100 safe handoff</span>
+              <span>3 handoff errors = shift failed</span>
+            </div>
+
+            <button
+              className="primary-button wide-button how-to-return"
+              onClick={() => setShowHowToPlay(false)}
+              type="button"
+            >
+              Return to airport selection
+            </button>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
