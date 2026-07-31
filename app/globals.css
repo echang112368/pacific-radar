@@ -3446,22 +3446,26 @@ h2 {
   min-height: 440px;
   overflow: hidden;
   background:
-    linear-gradient(rgba(5, 22, 17, 0.12), rgba(5, 22, 17, 0.52)),
+    linear-gradient(rgba(12, 62, 63, 0.46), rgba(5, 36, 37, 0.64)),
     url("/ksmo-terminal-satellite.jpg") center / cover;
+  box-shadow: inset 0 0 120px rgba(0, 9, 12, 0.58);
 }
 
 .airport-ksna .airport-focus-image {
-  filter: saturate(0.5);
-  background-position: 30% 40%;
+  background:
+    linear-gradient(rgba(8, 39, 33, 0.78), rgba(3, 16, 13, 0.96)),
+    #0b211c;
 }
 
 .airport-klax .airport-focus-image {
-  filter: saturate(0.4);
-  background-position: 78% 70%;
+  background:
+    linear-gradient(rgba(8, 39, 33, 0.78), rgba(3, 16, 13, 0.96)),
+    #0b211c;
 }
 
 .airport-focus-image::after {
   position: absolute;
+  z-index: 2;
   inset: 0;
   background:
     linear-gradient(rgba(181, 243, 217, 0.06) 1px, transparent 1px),
@@ -3491,36 +3495,130 @@ h2 {
   color: #8ba097;
 }
 
-.airport-focus-runway {
+.airport-preview-scope {
   position: absolute;
   z-index: 3;
-  left: 52%;
-  top: 53%;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.airport-preview-boundary {
+  position: absolute;
+  inset: 13px;
+  border: 1px dashed rgba(159, 231, 206, 0.16);
+}
+
+.airport-preview-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(173, 241, 216, 0.13);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.airport-preview-ring-one {
+  width: 22%;
+}
+
+.airport-preview-ring-two {
+  width: 46%;
+}
+
+.airport-preview-ring-three {
+  width: 72%;
+}
+
+.airport-preview-runway-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.airport-preview-runway-outline,
+.airport-preview-runway-surface {
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: square;
+}
+
+.airport-preview-runway-outline {
+  stroke: rgba(2, 15, 14, 0.94);
+  stroke-width: 8;
+}
+
+.airport-preview-runway-surface {
+  stroke: rgba(202, 255, 235, 0.94);
+  stroke-width: 4;
+  filter: drop-shadow(0 0 5px rgba(126, 250, 204, 0.5));
+}
+
+.airport-preview-runway-label {
+  position: absolute;
+  color: var(--mint);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-shadow:
+    0 1px 3px #00110d,
+    0 0 5px #00110d;
+}
+
+.airport-preview-runway-21 {
+  transform: translate(8px, -17px);
+}
+
+.airport-preview-runway-03 {
+  transform: translate(-20px, 8px);
+}
+
+.airport-preview-marker {
+  position: absolute;
+  left: 50.8%;
+  top: 49.3%;
   display: flex;
   align-items: center;
-  gap: 7px;
-  color: #d6ffef;
+  gap: 5px;
+  color: rgba(184, 236, 217, 0.7);
   font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 800;
-  transform: translate(-50%, -50%) rotate(-46deg);
+  font-size: 8px;
+  font-weight: 750;
+  transform: translate(-50%, -50%);
 }
 
-.airport-focus-runway i {
-  width: 150px;
-  height: 14px;
-  display: block;
-  border: 2px solid #d6ffef;
-  background: rgba(96, 242, 189, 0.1);
-  box-shadow: 0 0 22px rgba(96, 242, 189, 0.26);
+.airport-preview-marker i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(150, 241, 208, 0.72);
+  border-radius: 50%;
 }
 
-.airport-ksna .airport-focus-runway {
-  transform: translate(-50%, -50%) rotate(-8deg);
+.airport-preview-unavailable {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  color: #688078;
+  font-family: var(--mono);
+  text-align: center;
 }
 
-.airport-klax .airport-focus-runway {
-  transform: translate(-50%, -50%) rotate(4deg);
+.airport-preview-unavailable span {
+  font-size: 7px;
+  letter-spacing: 0.16em;
+}
+
+.airport-preview-unavailable strong {
+  color: #91a69e;
+  font-size: 11px;
+  letter-spacing: 0.08em;
 }
 
 .airport-focus-details {

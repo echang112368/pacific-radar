@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { KSMO_RUNWAY } from "../lib/ksmo-airport";
 
 type FlightKind = "arrival" | "departure";
 type RunwayEnd = "03" | "21";
@@ -137,25 +138,7 @@ const SMO_TRAFFIC_PROFILE: AirportTrafficProfile = {
   spacingReductionSeconds: 3,
 };
 
-const RUNWAY = {
-  designation: "03/21",
-  elevation: 177,
-  lengthFeet: 3500,
-  ends: {
-    "21": {
-      heading: 210,
-      threshold: { x: 52.2, y: 47.9 },
-      rolloutEnd: { x: 49.4, y: 50.7 },
-      hold: { x: 52.5, y: 47.7 },
-    },
-    "03": {
-      heading: 30,
-      threshold: { x: 49.4, y: 50.7 },
-      rolloutEnd: { x: 52.2, y: 47.9 },
-      hold: { x: 49.1, y: 50.9 },
-    },
-  },
-};
+const RUNWAY = KSMO_RUNWAY;
 
 const SIMULATION_TICKS_PER_SECOND = 4;
 const FEET_PER_NAUTICAL_MILE = 6076.12;

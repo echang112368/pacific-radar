@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { authClient } from "../lib/auth-client";
+import { KSMO_RUNWAY } from "../lib/ksmo-airport";
 
 const AIRPORTS = [
   {
@@ -96,11 +97,61 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
           <article className="airport-focus-card">
             <div className="airport-focus-image">
               <span className="airport-focus-status">{airport.status}</span>
-              <div className="airport-focus-runway" aria-hidden="true">
-                <span>03</span>
-                <i />
-                <span>21</span>
-              </div>
+              {airport.code === "KSMO" ? (
+                <div className="airport-preview-scope" aria-hidden="true">
+                  <span className="airport-preview-boundary" />
+                  <span className="airport-preview-ring airport-preview-ring-one" />
+                  <span className="airport-preview-ring airport-preview-ring-two" />
+                  <span className="airport-preview-ring airport-preview-ring-three" />
+                  <svg
+                    className="airport-preview-runway-layer"
+                    preserveAspectRatio="none"
+                    viewBox="0 0 100 100"
+                  >
+                    <line
+                      className="airport-preview-runway-outline"
+                      x1={KSMO_RUNWAY.ends["03"].threshold.x}
+                      x2={KSMO_RUNWAY.ends["21"].threshold.x}
+                      y1={KSMO_RUNWAY.ends["03"].threshold.y}
+                      y2={KSMO_RUNWAY.ends["21"].threshold.y}
+                    />
+                    <line
+                      className="airport-preview-runway-surface"
+                      x1={KSMO_RUNWAY.ends["03"].threshold.x}
+                      x2={KSMO_RUNWAY.ends["21"].threshold.x}
+                      y1={KSMO_RUNWAY.ends["03"].threshold.y}
+                      y2={KSMO_RUNWAY.ends["21"].threshold.y}
+                    />
+                  </svg>
+                  <span
+                    className="airport-preview-runway-label airport-preview-runway-21"
+                    style={{
+                      left: `${KSMO_RUNWAY.ends["21"].threshold.x}%`,
+                      top: `${KSMO_RUNWAY.ends["21"].threshold.y}%`,
+                    }}
+                  >
+                    21
+                  </span>
+                  <span
+                    className="airport-preview-runway-label airport-preview-runway-03"
+                    style={{
+                      left: `${KSMO_RUNWAY.ends["03"].threshold.x}%`,
+                      top: `${KSMO_RUNWAY.ends["03"].threshold.y}%`,
+                    }}
+                  >
+                    03
+                  </span>
+                  <span className="airport-preview-marker">
+                    <i />
+                    SMO
+                  </span>
+                </div>
+              ) : (
+                <div className="airport-preview-unavailable">
+                  <span>RADAR PREVIEW</span>
+                  <strong>NOT YET AVAILABLE</strong>
+                </div>
+              )}
             </div>
 
             <div className="airport-focus-details">

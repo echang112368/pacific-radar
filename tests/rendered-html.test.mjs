@@ -99,6 +99,30 @@ test("defines database-backed auth and a keyboard-accessible airport carousel", 
   assert.match(css, /@media \(max-width: 620px\)/);
 });
 
+test("uses the playable KSMO scope geometry in the airport preview", async () => {
+  const [carousel, simulator, airport, css] = await Promise.all([
+    readFile(new URL("../app/airport-carousel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ksmo-airport.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /const RUNWAY = KSMO_RUNWAY/);
+  assert.match(carousel, /KSMO_RUNWAY\.ends\["03"\]\.threshold\.x/);
+  assert.match(carousel, /KSMO_RUNWAY\.ends\["21"\]\.threshold\.y/);
+  assert.match(carousel, /viewBox="0 0 100 100"/);
+  assert.match(carousel, /airport-preview-ring-three/);
+  assert.match(carousel, /RADAR PREVIEW/);
+  assert.match(carousel, /NOT YET AVAILABLE/);
+  assert.match(airport, /designation: "03\/21"/);
+  assert.match(airport, /threshold: \{ x: 52\.2, y: 47\.9 \}/);
+  assert.match(airport, /threshold: \{ x: 49\.4, y: 50\.7 \}/);
+  assert.match(css, /\.airport-preview-runway-layer/);
+  assert.match(css, /\.airport-preview-runway-surface/);
+  assert.match(css, /\.airport-preview-boundary/);
+  assert.doesNotMatch(css, /\.airport-focus-runway/);
+});
+
 test("includes terminal-scope completion and handoff behavior", async () => {
   const [simulator, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
@@ -523,15 +547,17 @@ test("warns before a refresh would discard shift progress", async () => {
 });
 
 test("aligns departures to KSMO Runway 03/21 and uses the full runway before vectoring", async () => {
-  const [simulator, css] = await Promise.all([
+  const [simulator, airport, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ksmo-airport.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(simulator, /type RunwayEnd = "03" \| "21"/);
-  assert.match(simulator, /designation:\s*"03\/21"/);
-  assert.match(simulator, /"21":\s*\{[^}]*heading:\s*210/s);
-  assert.match(simulator, /"03":\s*\{[^}]*heading:\s*30/s);
+  assert.match(simulator, /const RUNWAY = KSMO_RUNWAY/);
+  assert.match(airport, /designation:\s*"03\/21"/);
+  assert.match(airport, /"21":\s*\{[^}]*heading:\s*210/s);
+  assert.match(airport, /"03":\s*\{[^}]*heading:\s*30/s);
   assert.match(simulator, /runway:\s*"03"/);
   assert.match(simulator, /const travel = groundTravelForKnots\(next\.speed\)/);
   assert.doesNotMatch(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE/);
