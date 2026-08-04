@@ -142,6 +142,7 @@ test("offers a complete keyboard-accessible how-to-play briefing", async () => {
   assert.match(carousel, /inside 500 feet laterally and vertically/);
   assert.match(carousel, /third incorrect handoff ends the shift/);
   assert.match(carousel, /3,000 feet AGL or lower/);
+  assert.match(carousel, /heading less than 90°/);
   assert.match(carousel, /N4382K C 5 C MALIBU T/);
   assert.match(carousel, /HELP · SCALE · STATS · EXIT/);
   assert.match(carousel, /HDG, ALT, DIRECT, SPEED, APP, LAND, HOLD, ABORT, TAXI, and QUIT/);
@@ -753,7 +754,13 @@ test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async 
   assert.match(simulator, /\^\\d\{3\}\$/);
   assert.match(simulator, /\["W", "LW", "LUAW"\]/);
   assert.match(simulator, /above 3,000 feet AGL/);
-  assert.match(simulator, /heading must be within 60°/);
+  assert.match(simulator, /LANDING_INTERCEPT_MAX_ANGLE_DEGREES = 90/);
+  assert.match(
+    simulator,
+    /angularDifference\(flight\.heading, runway\.heading\) >=\s*LANDING_INTERCEPT_MAX_ANGLE_DEGREES/s,
+  );
+  assert.match(simulator, /heading must be less than 90°/);
+  assert.doesNotMatch(simulator, /heading must be within 60°/);
   assert.match(simulator, /Invalid heading \$\{clearance\}; use 000 through 359/);
   assert.match(simulator, /!other\.completed/);
   assert.match(simulator, /globalCommand === "HELP"/);

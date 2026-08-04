@@ -363,8 +363,8 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
                   <h3>Use Runway 03/21 correctly</h3>
                   <p>
                     Departures need an altitude before takeoff. Landing clearance
-                    requires 3,000 feet AGL or lower and a heading within 60° of
-                    the selected runway centerline.
+                    requires 3,000 feet AGL or lower and a heading less than 90°
+                    from the selected runway centerline.
                   </p>
                 </div>
               </article>

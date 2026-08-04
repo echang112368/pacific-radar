@@ -149,6 +149,7 @@ const COLLISION_LATERAL_NM =
 const COLLISION_VERTICAL_FEET = 500;
 const LOSS_OF_SEPARATION_LATERAL_NM = 2;
 const LOSS_OF_SEPARATION_VERTICAL_FEET = 1000;
+const LANDING_INTERCEPT_MAX_ANGLE_DEGREES = 90;
 const INCORRECT_HANDOFF_LIMIT = 3;
 const SAFE_LANDING_POINTS = 100;
 const SAFE_HANDOFF_POINTS = 100;
@@ -1404,9 +1405,12 @@ function executeCommand(
           `${flight.callsign}: Unable landing clearance above 3,000 feet AGL.`,
         );
       }
-      if (angularDifference(flight.heading, runway.heading) > 60) {
+      if (
+        angularDifference(flight.heading, runway.heading) >=
+        LANDING_INTERCEPT_MAX_ANGLE_DEGREES
+      ) {
         return reject(
-          `${flight.callsign}: Unable landing clearance — heading must be within 60° of Runway ${runwayName}.`,
+          `${flight.callsign}: Unable landing clearance — heading must be less than 90° from Runway ${runwayName}.`,
         );
       }
       const occupant = previous.aircraft.find(
@@ -2510,8 +2514,8 @@ export function RadarSimulator() {
               </p>
               <p>
                 Departures require an assigned altitude. Landing requires 3,000
-                ft AGL or lower and a heading within 60° of the cleared runway
-                heading.
+                ft AGL or lower and a heading less than 90° from the cleared
+                runway heading.
               </p>
               <p>
                 KSMO has one runway designated 03/21. Runway 21 and Runway 03
