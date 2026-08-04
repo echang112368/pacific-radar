@@ -725,13 +725,13 @@ test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async 
     "utf8",
   );
 
-  assert.match(simulator, /const SPAWN_SCHEDULE/);
   assert.match(simulator, /aircraft:\s*\[\]/);
-  assert.match(simulator, /tick:\s*80/);
-  assert.match(simulator, /tick:\s*320/);
-  assert.match(simulator, /tick:\s*1280/);
   assert.match(simulator, /x:\s*0\.6/);
   assert.match(simulator, /status:\s*"HOLD_SHORT"/);
+  assert.doesNotMatch(simulator, /const SPAWN_SCHEDULE/);
+  assert.match(simulator, /FIRST_TRAFFIC_MIN_SECONDS = 6/);
+  assert.match(simulator, /FIRST_TRAFFIC_MAX_SECONDS = 10/);
+  assert.match(simulator, /randomizedFirstTrafficTick/);
   assert.match(
     simulator,
     /!\["HOLD_SHORT", "LINING_UP"\]\.includes\(flight\.status\)/,
@@ -766,10 +766,8 @@ test("scales balanced traffic to KSMO's single-runway capacity", async () => {
   assert.match(simulator, /runwayCount:\s*1/);
   assert.match(simulator, /initialSpacingSeconds:\s*Math\.round\(60 \/ capacityScale\)/);
   assert.match(simulator, /minimumSpacingSeconds:\s*Math\.round\(36 \/ capacityScale\)/);
-  assert.match(
-    simulator,
-    /CONTINUOUS_TRAFFIC_START_TICK =\s*380 \* SIMULATION_TICKS_PER_SECOND/,
-  );
+  assert.match(simulator, /TRAFFIC_INTERVAL_JITTER = 0\.38/);
+  assert.match(simulator, /ABSOLUTE_MIN_TRAFFIC_SPACING_SECONDS = 24/);
   assert.match(
     simulator,
     /INITIAL_TRAFFIC_INTERVAL_TICKS =\s*SMO_TRAFFIC_PROFILE\.initialSpacingSeconds \*\s*SIMULATION_TICKS_PER_SECOND/,
@@ -779,6 +777,13 @@ test("scales balanced traffic to KSMO's single-runway capacity", async () => {
     /MINIMUM_TRAFFIC_INTERVAL_TICKS =\s*SMO_TRAFFIC_PROFILE\.minimumSpacingSeconds \*\s*SIMULATION_TICKS_PER_SECOND/,
   );
   assert.match(simulator, /function continuousTrafficIntervalTicks/);
+  assert.match(simulator, /function trafficRandomUnit/);
+  assert.match(simulator, /window\.crypto\.getRandomValues/);
+  assert.match(simulator, /function randomizedTrafficIntervalTicks/);
+  assert.match(
+    simulator,
+    /trafficRandomUnit\(seed, sequence\) \* TRAFFIC_INTERVAL_JITTER \* 2/,
+  );
   assert.match(
     simulator,
     /sequence \/ SMO_TRAFFIC_PROFILE\.rampEveryMovements/,
@@ -794,7 +799,10 @@ test("scales balanced traffic to KSMO's single-runway capacity", async () => {
   );
   assert.match(simulator, /if \(world\.tick >= world\.nextTrafficTick\)/);
   assert.match(simulator, /trafficSequence: world\.trafficSequence \+ 1/);
-  assert.match(simulator, /continuousTrafficIntervalTicks\(world\.trafficSequence \+ 1\)/);
+  assert.match(
+    simulator,
+    /randomizedTrafficIntervalTicks\(\s*world\.trafficSequence \+ 1,\s*world\.trafficSeed/s,
+  );
   assert.match(simulator, /stepped\.filter\(\(flight\) => !flight\.completed\)/);
   assert.doesNotMatch(
     simulator,

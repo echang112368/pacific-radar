@@ -92,6 +92,7 @@ type SimulationFailure =
 type World = {
   tick: number;
   trafficSequence: number;
+  trafficSeed: number;
   nextTrafficTick: number;
   score: number;
   safeLandings: number;
@@ -153,8 +154,10 @@ const SAFE_LANDING_POINTS = 100;
 const SAFE_HANDOFF_POINTS = 100;
 const MAX_CATCH_UP_TICKS_PER_PASS =
   SIMULATION_TICKS_PER_SECOND * 60;
-const CONTINUOUS_TRAFFIC_START_TICK =
-  380 * SIMULATION_TICKS_PER_SECOND;
+const FIRST_TRAFFIC_MIN_SECONDS = 6;
+const FIRST_TRAFFIC_MAX_SECONDS = 10;
+const TRAFFIC_INTERVAL_JITTER = 0.38;
+const ABSOLUTE_MIN_TRAFFIC_SPACING_SECONDS = 24;
 const INITIAL_TRAFFIC_INTERVAL_TICKS =
   SMO_TRAFFIC_PROFILE.initialSpacingSeconds *
   SIMULATION_TICKS_PER_SECOND;
@@ -271,7 +274,9 @@ const AIRCRAFT_PERFORMANCE: Record<
 const INITIAL_WORLD: World = {
   tick: 0,
   trafficSequence: 0,
-  nextTrafficTick: CONTINUOUS_TRAFFIC_START_TICK,
+  trafficSeed: 0,
+  nextTrafficTick:
+    FIRST_TRAFFIC_MAX_SECONDS * SIMULATION_TICKS_PER_SECOND,
   score: 0,
   safeLandings: 0,
   safeHandoffs: 0,
@@ -312,135 +317,6 @@ const EXIT_FIXES = [
   { name: "MALIBU", x: 2, y: 70, edge: "west" },
 ] as const;
 
-const SPAWN_SCHEDULE: { tick: number; aircraft: Aircraft }[] = [
-  {
-    tick: 80,
-    aircraft: {
-      callsign: "N4382K",
-      type: "PA28",
-      wake: "L",
-      kind: "departure",
-      status: "HOLD_SHORT",
-      runway: "21",
-      x: 52.5,
-      y: 47.7,
-      heading: 210,
-      targetHeading: 210,
-      altitude: 177,
-      targetAltitude: 177,
-      speed: 0,
-      targetSpeed: 0,
-      exitFix: "MALIBU",
-      departureAltitudeAssigned: false,
-      track: [],
-    },
-  },
-  {
-    tick: 320,
-    aircraft: {
-      callsign: "N172SP",
-      type: "C172",
-      wake: "L",
-      kind: "arrival",
-      status: "INBOUND",
-      runway: "21",
-      x: 99.2,
-      y: 9,
-      heading: 246,
-      targetHeading: 246,
-      altitude: 4600,
-      targetAltitude: 4600,
-      speed: 115,
-      targetSpeed: 115,
-      track: [],
-    },
-  },
-  {
-    tick: 800,
-    aircraft: {
-      callsign: "JSX422",
-      type: "E145",
-      wake: "M",
-      kind: "arrival",
-      status: "INBOUND",
-      runway: "03",
-      x: 99.4,
-      y: 76,
-      heading: 304,
-      targetHeading: 304,
-      altitude: 6200,
-      targetAltitude: 6200,
-      speed: 190,
-      targetSpeed: 190,
-      track: [],
-    },
-  },
-  {
-    tick: 560,
-    aircraft: {
-      callsign: "SURF52",
-      type: "PC12",
-      wake: "M",
-      kind: "departure",
-      status: "HOLD_SHORT",
-      runway: "03",
-      x: 49.1,
-      y: 50.9,
-      heading: 30,
-      targetHeading: 30,
-      altitude: 177,
-      targetAltitude: 177,
-      speed: 0,
-      targetSpeed: 0,
-      exitFix: "LAXX",
-      departureAltitudeAssigned: false,
-      track: [],
-    },
-  },
-  {
-    tick: 1280,
-    aircraft: {
-      callsign: "N91GX",
-      type: "C25A",
-      wake: "M",
-      kind: "arrival",
-      status: "INBOUND",
-      runway: "21",
-      x: 17,
-      y: 0.6,
-      heading: 154,
-      targetHeading: 154,
-      altitude: 7200,
-      targetAltitude: 7200,
-      speed: 220,
-      targetSpeed: 220,
-      track: [],
-    },
-  },
-  {
-    tick: 1040,
-    aircraft: {
-      callsign: "N225SM",
-      type: "C172",
-      wake: "L",
-      kind: "departure",
-      status: "HOLD_SHORT",
-      runway: "21",
-      x: 53,
-      y: 47.3,
-      heading: 210,
-      targetHeading: 210,
-      altitude: 177,
-      targetAltitude: 177,
-      speed: 0,
-      targetSpeed: 0,
-      exitFix: "HOLTZ",
-      departureAltitudeAssigned: false,
-      track: [],
-    },
-  },
-];
-
 const CONTINUOUS_ENTRY_ROUTES = [
   { x: 99.4, y: 12, heading: 246, runway: "21" as RunwayEnd },
   { x: 99.4, y: 76, heading: 304, runway: "03" as RunwayEnd },
@@ -472,6 +348,37 @@ function continuousTrafficIntervalTicks(sequence: number) {
       SIMULATION_TICKS_PER_SECOND;
 
   return Math.max(MINIMUM_TRAFFIC_INTERVAL_TICKS, interval);
+}
+
+function trafficRandomUnit(seed: number, sequence: number) {
+  let value = (seed + Math.imul(sequence + 1, 0x6d2b79f5)) >>> 0;
+  value = Math.imul(value ^ (value >>> 15), value | 1);
+  value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+  return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+}
+
+function createTrafficSeed() {
+  const values = new Uint32Array(1);
+  window.crypto.getRandomValues(values);
+  return values[0] || 1;
+}
+
+function randomizedFirstTrafficTick(seed: number) {
+  const seconds =
+    FIRST_TRAFFIC_MIN_SECONDS +
+    trafficRandomUnit(seed, -1) *
+      (FIRST_TRAFFIC_MAX_SECONDS - FIRST_TRAFFIC_MIN_SECONDS);
+  return Math.round(seconds * SIMULATION_TICKS_PER_SECOND);
+}
+
+function randomizedTrafficIntervalTicks(sequence: number, seed: number) {
+  const baseInterval = continuousTrafficIntervalTicks(sequence);
+  const multiplier =
+    1 - TRAFFIC_INTERVAL_JITTER +
+    trafficRandomUnit(seed, sequence) * TRAFFIC_INTERVAL_JITTER * 2;
+  const minimumInterval =
+    ABSOLUTE_MIN_TRAFFIC_SPACING_SECONDS * SIMULATION_TICKS_PER_SECOND;
+  return Math.max(minimumInterval, Math.round(baseInterval * multiplier));
 }
 
 function continuousCallsign(sequence: number) {
@@ -1164,27 +1071,6 @@ function stepWorld(previous: World): World {
   world.aircraft = stepped.filter((flight) => !flight.completed);
   if (world.failure) return world;
 
-  for (const spawn of SPAWN_SCHEDULE) {
-    if (
-      spawn.tick === world.tick &&
-      !world.aircraft.some(
-        (flight) => flight.callsign === spawn.aircraft.callsign,
-      )
-    ) {
-      world.aircraft = [
-        ...world.aircraft,
-        { ...spawn.aircraft, track: [] },
-      ];
-      world = appendEvent(
-        world,
-        "pilot",
-        spawn.aircraft.kind === "arrival"
-          ? `${spawn.aircraft.callsign}: Entering the terminal area from the scope boundary.`
-          : `${spawn.aircraft.callsign}: Holding short Runway ${spawn.aircraft.runway ?? "21"}, ready for departure.`,
-      );
-    }
-  }
-
   if (world.tick >= world.nextTrafficTick) {
     const generated = createContinuousTraffic(world.trafficSequence);
     world.aircraft = [...world.aircraft, generated];
@@ -1193,7 +1079,10 @@ function stepWorld(previous: World): World {
       trafficSequence: world.trafficSequence + 1,
       nextTrafficTick:
         world.tick +
-        continuousTrafficIntervalTicks(world.trafficSequence + 1),
+        randomizedTrafficIntervalTicks(
+          world.trafficSequence + 1,
+          world.trafficSeed,
+        ),
     };
     world = appendEvent(
       world,
@@ -1804,7 +1693,15 @@ function flightCardRoute(flight: Aircraft) {
 }
 
 export function RadarSimulator() {
-  const [world, setWorld] = useState<World>(INITIAL_WORLD);
+  const [world, setWorld] = useState<World>(() => {
+    const trafficSeed =
+      typeof window === "undefined" ? 1 : createTrafficSeed();
+    return {
+      ...INITIAL_WORLD,
+      trafficSeed,
+      nextTrafficTick: randomizedFirstTrafficTick(trafficSeed),
+    };
+  });
   const [selected, setSelected] = useState<string | null>(null);
   const [command, setCommand] = useState("");
   const [paused, setPaused] = useState(false);
@@ -2071,7 +1968,12 @@ export function RadarSimulator() {
   };
 
   const reset = () => {
-    setWorld(INITIAL_WORLD);
+    const trafficSeed = createTrafficSeed();
+    setWorld({
+      ...INITIAL_WORLD,
+      trafficSeed,
+      nextTrafficTick: randomizedFirstTrafficTick(trafficSeed),
+    });
     setSelected(null);
     setCommand("");
     setQueuedCommands([]);
