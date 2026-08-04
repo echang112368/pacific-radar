@@ -579,6 +579,27 @@ test("warns before a refresh would discard shift progress", async () => {
   );
 });
 
+test("confirms before the simulator header returns to airport selection", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /showFinishConfirm/);
+  assert.match(simulator, /event\.preventDefault\(\)/);
+  assert.match(simulator, /Finish simulation\?/);
+  assert.match(simulator, /role="alertdialog"/);
+  assert.match(simulator, /aria-describedby="finish-simulation-description"/);
+  assert.match(simulator, /Keep playing/);
+  assert.match(simulator, /Finish simulation/);
+  assert.match(simulator, /className="primary-button finish-confirm-button"/);
+  assert.match(simulator, /href="\/"\s*replace/s);
+  assert.match(simulator, /setShowFinishConfirm\(false\)/);
+  assert.match(css, /\.finish-modal/);
+  assert.match(css, /\.finish-actions/);
+  assert.match(css, /\.finish-confirm-button/);
+});
+
 test("aligns departures to KSMO Runway 03/21 and uses the full runway before vectoring", async () => {
   const [simulator, airport, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),

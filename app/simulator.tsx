@@ -1816,6 +1816,7 @@ export function RadarSimulator() {
   const [showSatellite, setShowSatellite] = useState(true);
   const [showScale, setShowScale] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [shiftComplete, setShiftComplete] = useState(false);
   const [highScores, setHighScores] = useState<HighScore[]>(() => {
     if (typeof window === "undefined") return [];
@@ -1894,6 +1895,7 @@ export function RadarSimulator() {
       if (event.key === "Escape") {
         setShowHelp(false);
         setShowStats(false);
+        setShowFinishConfirm(false);
         inputRef.current?.blur();
       }
     };
@@ -2084,7 +2086,15 @@ export function RadarSimulator() {
   return (
     <main className="sim-shell">
       <header className="top-bar">
-        <Link className="brand-block" href="/" aria-label="Return to Pacific Radar home">
+        <Link
+          aria-label="Finish simulation and return to airport selection"
+          className="brand-block"
+          href="/"
+          onClick={(event) => {
+            event.preventDefault();
+            setShowFinishConfirm(true);
+          }}
+        >
           <div className="brand-mark" aria-hidden="true">
             PR
           </div>
@@ -2481,6 +2491,50 @@ export function RadarSimulator() {
           </footer>
         </aside>
       </section>
+
+      {showFinishConfirm && (
+        <div
+          className="modal-backdrop finish-backdrop"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              setShowFinishConfirm(false);
+            }
+          }}
+          role="presentation"
+        >
+          <section
+            aria-describedby="finish-simulation-description"
+            aria-labelledby="finish-simulation-title"
+            aria-modal="true"
+            className="command-modal finish-modal"
+            role="alertdialog"
+          >
+            <p className="eyebrow">END CURRENT SHIFT</p>
+            <h2 id="finish-simulation-title">Finish simulation?</h2>
+            <p id="finish-simulation-description">
+              Returning to airport selection will end this simulation and its
+              current progress. Your score is {world.score.toLocaleString()}.
+            </p>
+            <div className="finish-actions">
+              <button
+                autoFocus
+                className="ghost-button"
+                onClick={() => setShowFinishConfirm(false)}
+                type="button"
+              >
+                Keep playing
+              </button>
+              <Link
+                className="primary-button finish-confirm-button"
+                href="/"
+                replace
+              >
+                Finish simulation
+              </Link>
+            </div>
+          </section>
+        </div>
+      )}
 
       {showHelp && (
         <div className="modal-backdrop" role="presentation">

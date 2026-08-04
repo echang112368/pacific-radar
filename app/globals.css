@@ -1230,6 +1230,45 @@ body .strips-section * {
   width: 100%;
 }
 
+.finish-backdrop {
+  background: rgba(2, 9, 8, 0.84);
+}
+
+.finish-modal {
+  width: min(470px, 100%);
+}
+
+.finish-modal h2 {
+  margin-top: 5px;
+  font-size: 27px;
+}
+
+.finish-modal > p:not(.eyebrow) {
+  margin: 16px 0 22px;
+  color: #abc0b8;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.finish-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.finish-actions > * {
+  min-height: 42px;
+}
+
+.finish-confirm-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mint-strong);
+  color: #071410;
+  text-decoration: none;
+}
+
 .stats-modal {
   width: min(560px, 100%);
 }
