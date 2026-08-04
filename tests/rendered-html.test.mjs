@@ -836,7 +836,7 @@ test("keeps the clearance console in the sidebar and gives the radar full height
   assert.match(css, /\.radar-map\s*\{[^}]*height:\s*100%/s);
   assert.match(
     css,
-    /\.side-panel\s*\{[^}]*grid-template-rows:\s*92px auto auto minmax\(0, 1fr\) auto/s,
+    /\.side-panel\s*\{[^}]*grid-template-rows:\s*minmax\(92px, max-content\) auto auto minmax\(0, 1fr\) auto/s,
   );
   assert.doesNotMatch(css, /height:\s*calc\(100%\s*-\s*174px\)/);
 });
@@ -867,7 +867,11 @@ test("keeps radio messages at the top and scrolls only the active strip stack", 
   );
   assert.match(css, /\.strips-section\s*\{[^}]*overflow:\s*hidden/s);
   assert.match(css, /\.strip-stack\s*\{[^}]*overflow-y:\s*auto/s);
-  assert.match(css, /\.event-log\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(css, /\.event-row p\s*\{[^}]*white-space:\s*normal/s);
+  assert.match(css, /\.event-row p\s*\{[^}]*overflow-wrap:\s*anywhere/s);
+  assert.match(css, /\.event-row p\s*\{[^}]*text-overflow:\s*clip/s);
+  const eventText = css.match(/\.event-row p\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.doesNotMatch(eventText, /text-overflow:\s*ellipsis|white-space:\s*nowrap/);
   assert.match(layout, /B612/);
   assert.match(layout, /--font-b612/);
   assert.match(css, /body \.radio-section \*/);
