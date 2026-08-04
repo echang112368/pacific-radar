@@ -124,9 +124,10 @@ test("uses the playable KSMO scope geometry in the airport preview", async () =>
 });
 
 test("offers a complete keyboard-accessible how-to-play briefing", async () => {
-  const [carousel, css] = await Promise.all([
+  const [carousel, css, layout] = await Promise.all([
     readFile(new URL("../app/airport-carousel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(carousel, />\s*How to play\s*<\/button>/);
@@ -150,6 +151,9 @@ test("offers a complete keyboard-accessible how-to-play briefing", async () => {
   assert.match(css, /\.how-to-backdrop/);
   assert.match(css, /\.how-to-command-grid/);
   assert.match(css, /\.how-to-rule-grid/);
+  assert.match(layout, /Playfair_Display/);
+  assert.match(layout, /--font-playfair-display/);
+  assert.match(css, /\.how-to-modal[\s\S]*font-family: var\(--font-playfair-display\)/);
 });
 
 test("includes terminal-scope completion and handoff behavior", async () => {
