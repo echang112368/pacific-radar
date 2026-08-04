@@ -1647,10 +1647,6 @@ function executeCommand(
   );
 }
 
-function statusLabel(status: FlightStatus) {
-  return status.replaceAll("_", " ");
-}
-
 function altitudeLabel(altitude: number) {
   return String(Math.round(altitude / 100)).padStart(3, "0");
 }
@@ -1668,28 +1664,6 @@ function altitudeTrendLabel(flight: Aircraft) {
 
 function clearedHeading(flight: Aircraft) {
   return flight.departureHeading ?? flight.targetHeading;
-}
-
-function flightCardRoute(flight: Aircraft) {
-  const runway = flight.runway ?? "21";
-  if (flight.kind === "departure" && flight.status === "HOLD_SHORT") {
-    return `RWY ${runway} · HOLD SHORT · TO ${flight.exitFix ?? "TBD"}`;
-  }
-  if (flight.kind === "departure" && flight.status === "LINING_UP") {
-    return `RWY ${runway} · LINING UP · TO ${flight.exitFix ?? "TBD"}`;
-  }
-  if (flight.kind === "departure" && flight.status === "LINE_UP") {
-    return `RWY ${runway} · LINE UP & WAIT · TO ${flight.exitFix ?? "TBD"}`;
-  }
-  if (flight.kind === "departure" && flight.status === "TAKEOFF_READY") {
-    return `RWY ${runway} · TAKEOFF POWER SET`;
-  }
-  const route =
-    flight.kind === "arrival"
-      ? `RWY ${runway}`
-      : `EXIT ${flight.exitFix ?? "TBD"}`;
-  if (["INBOUND", "DEPARTURE"].includes(flight.status)) return route;
-  return `${route} · ${statusLabel(flight.status)}`;
 }
 
 export function RadarSimulator() {
@@ -2332,23 +2306,36 @@ export function RadarSimulator() {
                     inputRef.current?.focus();
                   }}
                 >
-                  <span className="strip-main">
+                  <span className="strip-cell strip-ident">
+                    <small>CALLSIGN</small>
                     <strong>{flight.callsign}</strong>
-                    <small>
-                      {flight.type} · WTC {flight.wake} · HDG{" "}
-                      {String(Math.round(clearedHeading(flight))).padStart(3, "0")}
-                      ° ·{" "}
-                      {Math.round(currentGroundMotion(flight).groundSpeed)}KT
-                    </small>
+                    <em>{flight.type} · WTC {flight.wake}</em>
                   </span>
-                  <span className="strip-data">
+                  <span className="strip-cell strip-altitude">
+                    <small>ALT</small>
                     <strong>
                       {altitudeLabel(flight.targetAltitude)}
                       {altitudeTrendSymbol(flight)}
                     </strong>
-                    <small>ALT</small>
                   </span>
-                  <span className="strip-status">{flightCardRoute(flight)}</span>
+                  <span className="strip-cell">
+                    <small>HDG</small>
+                    <strong>
+                      {String(Math.round(clearedHeading(flight))).padStart(3, "0")}°
+                    </strong>
+                  </span>
+                  <span className="strip-cell">
+                    <small>SPD</small>
+                    <strong>
+                      {Math.round(currentGroundMotion(flight).groundSpeed)}KT
+                    </strong>
+                  </span>
+                  {flight.kind === "departure" && (
+                    <span className="strip-cell strip-destination">
+                      <small>TO</small>
+                      <strong>{flight.exitFix ?? "TBD"}</strong>
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

@@ -691,8 +691,8 @@ test("stages lineup, takeoff power, and progressive runway acceleration", async 
   assert.match(simulator, /next\.targetAltitude = Math\.max\(next\.targetAltitude, 2500\)/);
   assert.doesNotMatch(simulator, /TAKEOFF_ACCELERATION_PER_TICK|targetSpeed = 78/);
   assert.doesNotMatch(simulator, /flight\.status = "TAKEOFF_ROLL"/);
-  assert.match(simulator, /LINE UP & WAIT/);
-  assert.match(simulator, /TAKEOFF POWER SET/);
+  assert.match(simulator, /line up and wait/i);
+  assert.match(simulator, /set takeoff power/i);
 });
 
 test("pause is a planning state with compact, boxless traffic displays", async () => {
@@ -705,7 +705,14 @@ test("pause is a planning state with compact, boxless traffic displays", async (
   assert.match(simulator, /Clearance queued for resume/);
   assert.match(simulator, /queuedCommands\.reduce/);
   assert.match(simulator, /Traffic and clock frozen/);
-  assert.match(simulator, /flightCardRoute/);
+  assert.match(simulator, /<small>CALLSIGN<\/small>/);
+  assert.match(simulator, /<small>ALT<\/small>/);
+  assert.match(simulator, /<small>HDG<\/small>/);
+  assert.match(simulator, /<small>SPD<\/small>/);
+  assert.match(simulator, /flight\.kind === "departure"/);
+  assert.match(simulator, /<small>TO<\/small>/);
+  assert.match(simulator, /flight\.exitFix \?\? "TBD"/);
+  assert.doesNotMatch(simulator, /flightCardRoute/);
   assert.doesNotMatch(simulator, /<b>\{flight\.kind/);
 
   const dataTag = css.match(/\.data-tag\s*\{([^}]*)\}/)?.[1] ?? "";
@@ -716,7 +723,11 @@ test("pause is a planning state with compact, boxless traffic displays", async (
   assert.match(css, /\.pause-indicator\s*\{[^}]*top:\s*12px/s);
   assert.match(css, /\.pause-indicator\s*\{[^}]*pointer-events:\s*none/s);
   assert.doesNotMatch(css, /\.pause-overlay|\.pause-card/);
-  assert.match(css, /\.flight-strip\s*\{[^}]*min-height:\s*49px/s);
+  assert.match(css, /\.flight-strip\s*\{[^}]*min-height:\s*68px/s);
+  assert.match(css, /\.flight-strip\.arrival\s*\{[^}]*grid-template-columns/s);
+  assert.match(css, /\.strip-cell\s*\{[^}]*border-right/s);
+  assert.match(css, /\.strip-altitude strong\s*\{[^}]*#80d88c/s);
+  assert.match(css, /\.strip-destination strong\s*\{[^}]*#8fd7ff/s);
 });
 
 test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async () => {
