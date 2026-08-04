@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import { B612, Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 
@@ -16,6 +16,12 @@ const geistMono = Geist_Mono({
 const playfairDisplay = Playfair_Display({
   variable: "--font-playfair-display",
   subsets: ["latin"],
+});
+
+const b612 = B612({
+  variable: "--font-b612",
+  subsets: ["latin"],
+  weight: ["400", "700"],
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -59,7 +65,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable}`}
+        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${b612.variable}`}
       >
         {children}
       </body>

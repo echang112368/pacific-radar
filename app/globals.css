@@ -997,6 +997,13 @@ h2 {
   color: var(--mint-strong);
 }
 
+body .radio-section,
+body .radio-section *,
+body .strips-section,
+body .strips-section * {
+  font-family: var(--font-b612), Arial, Helvetica, sans-serif;
+}
+
 .side-footer {
   display: grid;
   gap: 8px;

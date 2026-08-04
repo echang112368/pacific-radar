@@ -802,9 +802,10 @@ test("keeps the clearance console in the sidebar and gives the radar full height
 });
 
 test("keeps radio messages at the top and scrolls only the active strip stack", async () => {
-  const [simulator, css] = await Promise.all([
+  const [simulator, css, layout] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
   ]);
 
   const sidebarIndex = simulator.indexOf('<aside className="side-panel">');
@@ -827,6 +828,11 @@ test("keeps radio messages at the top and scrolls only the active strip stack", 
   assert.match(css, /\.strips-section\s*\{[^}]*overflow:\s*hidden/s);
   assert.match(css, /\.strip-stack\s*\{[^}]*overflow-y:\s*auto/s);
   assert.match(css, /\.event-log\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(layout, /B612/);
+  assert.match(layout, /--font-b612/);
+  assert.match(css, /body \.radio-section \*/);
+  assert.match(css, /body \.strips-section \*/);
+  assert.match(css, /font-family: var\(--font-b612\)/);
 });
 
 test("uses a bare command input without selection or suggested clearances", async () => {
