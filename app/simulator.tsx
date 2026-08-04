@@ -147,7 +147,9 @@ const COLLISION_DISTANCE_FEET = 500;
 const COLLISION_LATERAL_NM =
   COLLISION_DISTANCE_FEET / FEET_PER_NAUTICAL_MILE;
 const COLLISION_VERTICAL_FEET = 500;
-const LOSS_OF_SEPARATION_LATERAL_NM = 2;
+const LOSS_OF_SEPARATION_LATERAL_FEET = 1000;
+const LOSS_OF_SEPARATION_LATERAL_NM =
+  LOSS_OF_SEPARATION_LATERAL_FEET / FEET_PER_NAUTICAL_MILE;
 const LOSS_OF_SEPARATION_VERTICAL_FEET = 1000;
 const LANDING_INTERCEPT_MAX_ANGLE_DEGREES = 90;
 const INCORRECT_HANDOFF_LIMIT = 3;
@@ -2504,7 +2506,7 @@ export function RadarSimulator() {
               <strong>Safety and runway rules</strong>
               <p>
                 A loss of separation is recorded when aircraft are both less
-                than 2 NM apart laterally and less than 1,000 ft apart
+                than 1,000 ft apart laterally and less than 1,000 ft apart
                 vertically. Both affected radar targets turn red.
               </p>
               <p>

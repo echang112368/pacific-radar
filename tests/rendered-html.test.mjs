@@ -137,7 +137,8 @@ test("offers a complete keyboard-accessible how-to-play briefing", async () => {
   assert.match(carousel, /role="dialog"/);
   assert.match(carousel, /aria-label="Close how to play"/);
   assert.match(carousel, /event\.currentTarget === event\.target/);
-  assert.match(carousel, /at least 2 NM/);
+  assert.match(carousel, /at least 1,000/);
+  assert.match(carousel, /feet laterally or 1,000 feet vertically/);
   assert.match(carousel, /1,000 feet vertically/);
   assert.match(carousel, /inside 500 feet laterally and vertically/);
   assert.match(carousel, /third incorrect handoff ends the shift/);
@@ -396,7 +397,11 @@ test("highlights aircraft only inside the close-proximity warning radius", async
   ]);
 
   assert.match(simulator, /const conflictedCallsigns = useMemo/);
-  assert.match(simulator, /LOSS_OF_SEPARATION_LATERAL_NM = 2/);
+  assert.match(simulator, /LOSS_OF_SEPARATION_LATERAL_FEET = 1000/);
+  assert.match(
+    simulator,
+    /LOSS_OF_SEPARATION_LATERAL_FEET \/ FEET_PER_NAUTICAL_MILE/,
+  );
   assert.match(simulator, /LOSS_OF_SEPARATION_VERTICAL_FEET = 1000/);
   assert.match(
     simulator,
@@ -416,7 +421,7 @@ test("highlights aircraft only inside the close-proximity warning radius", async
   assert.doesNotMatch(css, /\.conflict-banner/);
   assert.match(
     simulator,
-    /A loss of separation is recorded when aircraft are both less\s*than 2 NM apart laterally and less than 1,000 ft apart\s*vertically/s,
+    /A loss of separation is recorded when aircraft are both less\s*than 1,000 ft apart laterally and less than 1,000 ft apart\s*vertically/s,
   );
   assert.match(
     simulator,

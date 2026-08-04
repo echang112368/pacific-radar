@@ -330,9 +330,9 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
                 <div>
                   <h3>Maintain separation</h3>
                   <p>
-                    Aircraft are safely separated when they have at least 2 NM
-                    laterally or 1,000 feet vertically. Targets turn red only
-                    when both minimums are lost.
+                    Aircraft are safely separated when they have at least 1,000
+                    feet laterally or 1,000 feet vertically. Targets turn red
+                    only when both minimums are lost.
                   </p>
                 </div>
               </article>
