@@ -1,11 +1,30 @@
 # Pacific Radar
 
-Phase 0 of a browser-based air traffic control game, initially modeled around
-Santa Monica Municipal Airport (KSMO) and its single 3,500-foot Runway 03/21.
+Phase 0 of a browser-based air traffic control game with playable Santa Monica
+Municipal (KSMO), Los Angeles International (KLAX), and Chicago O'Hare
+International (KORD) tower levels.
 
 The current prototype includes:
 
-- A real, attributed 35 NM satellite scope covering the Los Angeles terminal
+- Secure email/password accounts with required email verification, one-time
+  password-reset links, session revocation after reset, and password-plus-email
+  confirmation for permanent account deletion.
+- Versioned Terms acceptance, a detailed Privacy Policy, strictly necessary
+  authentication cookies, and user-facing account/privacy controls.
+- A first-screen position selector for separate Air Traffic Control and Ground
+  Control game modes.
+- A playable KSMO Ground shift on an FAA-diagram-derived simulated airport
+  surface display with
+  Runway 03/21 geometry, Taxiways A/B, A1-A5 and B1-B5 markings, published
+  run-up areas, parking assignments, automatic tower-controlled arrivals, and
+  player-controlled takeoffs.
+- Type-aware KSMO surface traffic (C172, PA28, DA42, PC12, Citation CJ2, and
+  JSX ATR 42-600), realistic taxi/ramp speeds, engine-start timing, runway
+  protection, surface conflicts, and arrival/departure scoring.
+- A playable KLAX Ground shift on a calibrated simulated airport surface display with all
+  four runways, the central terminal loop, modeled gate assignments, paired
+  arrival/departure runway protection, and current Terminal 5 closure state.
+- A real, attributed 18 NM satellite scope covering the Los Angeles terminal
   area around KSMO.
 - A deterministic moving radar picture with multiple arrivals and departures.
 - Arrivals enter only through scope boundaries; departures begin as runway
@@ -26,6 +45,18 @@ The current prototype includes:
 - Flight strips, a radio log, a shift score, and seeded reset behavior.
 - A pure Python deterministic simulation core with tests for runway occupancy,
   clearance prerequisites, and replay consistency.
+- A four-runway KLAX expert level with an FAA-coordinate runway map, normal
+  west-flow arrival/departure assignments, independent parallel-runway
+  occupancy, heavy traffic, and a current LAX-weighted airline fleet.
+- An eight-runway KORD extreme level with an FAA-coordinate 18 NM map,
+  dominant west-flow runway assignments, very heavy traffic, current O'Hare
+  fleet weighting, and six additional aircraft performance profiles.
+
+The research, aircraft catalogs, performance values, and primary sources are
+documented in [`docs/ksmo-ground-research.md`](docs/ksmo-ground-research.md),
+[`docs/klax-ground-research.md`](docs/klax-ground-research.md),
+[`docs/lax-research.md`](docs/lax-research.md), and
+[`docs/ord-research.md`](docs/ord-research.md).
 
 ## Python simulation
 
@@ -39,8 +70,26 @@ The browser client is currently a Phase 0 visualization and interaction
 prototype. The Python engine is the intended authoritative simulation boundary
 as the project advances.
 
+## Account email configuration
+
+Pacific Radar sends verification, password-reset, and deletion-confirmation
+messages through the Resend Email API. Copy `.env.example` to `.env.local` for
+local development and configure the equivalent values in the hosting
+environment for production. `BETTER_AUTH_URL` must be the public site origin,
+`BETTER_AUTH_SECRET` must be a unique random secret of at least 32 characters,
+and `EMAIL_FROM` must use a sender domain verified by the email provider.
+
+Without email credentials, local development prints the single-use account
+link to the server console. Production deliberately fails closed instead of
+pretending an account email was delivered.
+
+After changing `db/schema.ts`, generate and apply the checked-in Drizzle
+migrations before serving authentication traffic.
+
 ## Data and imagery
 
-Airport facts are based on current FAA material for KSMO. Satellite imagery is
-from Esri World Imagery and is attributed in the radar display. The prototype is
-for entertainment and software development, not operational ATC training.
+Airport facts are based on current FAA material. ATC scopes use attributed Esri
+World Imagery; Ground scopes use code-drawn airport surface displays derived from
+FAA diagrams so pavement, taxi routes, terminals, and aircraft share one stable
+projection. The prototype is for entertainment and software development, not
+operational ATC training.

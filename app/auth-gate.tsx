@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import { AirportCarousel } from "./airport-carousel";
+import { LegalFooter } from "./legal-footer";
 
 type AuthMode = "sign-in" | "sign-up";
 
@@ -14,10 +16,20 @@ function readableAuthError(message?: string) {
   if (/already exists|already registered/i.test(message)) {
     return "An account already exists for that email.";
   }
+  if (/email.*not.*verified|not.*verified/i.test(message)) {
+    return "Verify your email before signing in. We sent a fresh verification link.";
+  }
+  if (/too many requests|rate limit/i.test(message)) {
+    return "Too many attempts. Please wait a few minutes and try again.";
+  }
   return message;
 }
 
-export function AuthGate() {
+type AuthGateProps = {
+  initialNotice?: string | null;
+};
+
+export function AuthGate({ initialNotice = null }: AuthGateProps) {
   const { data: session, isPending } = authClient.useSession();
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [name, setName] = useState("");
@@ -25,8 +37,11 @@ export function AuthGate() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(initialNotice);
 
   if (!isPending && session?.user) {
     return <AirportCarousel displayName={session.user.name || session.user.email} />;
@@ -35,8 +50,32 @@ export function AuthGate() {
   const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);
     setError(null);
+    setNotice(null);
     setPassword("");
     setConfirmPassword("");
+  };
+
+  const handleResend = async () => {
+    if (!email || resending) return;
+    setResending(true);
+    setError(null);
+    try {
+      const result = await authClient.sendVerificationEmail({
+        email,
+        callbackURL: "/?verified=true",
+      });
+      if (result.error) {
+        setError(readableAuthError(result.error.message));
+        return;
+      }
+      setNotice(
+        "If that address has an unverified account, a fresh link is on the way.",
+      );
+    } catch {
+      setError("The email service is unavailable. Please try again.");
+    } finally {
+      setResending(false);
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -59,10 +98,21 @@ export function AuthGate() {
               name: name.trim(),
               email,
               password,
+              callbackURL: "/?verified=true",
+              termsAccepted,
             });
 
       if (result.error) {
         setError(readableAuthError(result.error.message));
+        return;
+      }
+
+      if (mode === "sign-up") {
+        setPassword("");
+        setConfirmPassword("");
+        setNotice(
+          "Account created. Check your inbox and verify your email before signing in.",
+        );
         return;
       }
 
@@ -179,30 +229,59 @@ export function AuthGate() {
             </label>
 
             {mode === "sign-up" ? (
-              <label>
-                Confirm password
-                <input
-                  autoComplete="new-password"
-                  disabled={submitting || isPending}
-                  maxLength={128}
-                  minLength={10}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  required
-                  type="password"
-                  value={confirmPassword}
-                />
-              </label>
+              <>
+                <label>
+                  Confirm password
+                  <input
+                    autoComplete="new-password"
+                    disabled={submitting || isPending}
+                    maxLength={128}
+                    minLength={10}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    required
+                    type="password"
+                    value={confirmPassword}
+                  />
+                </label>
+                <label className="auth-consent">
+                  <input
+                    checked={termsAccepted}
+                    disabled={submitting || isPending}
+                    onChange={(event) => setTermsAccepted(event.target.checked)}
+                    required
+                    type="checkbox"
+                  />
+                  <span>
+                    I agree to the <Link href="/terms">Terms of Service</Link> and
+                    acknowledge the <Link href="/privacy">Privacy Policy</Link>.
+                  </span>
+                </label>
+              </>
             ) : (
-              <label className="auth-remember">
-                <input
-                  checked={rememberMe}
-                  disabled={submitting || isPending}
-                  onChange={(event) => setRememberMe(event.target.checked)}
-                  type="checkbox"
-                />
-                Keep me signed in
-              </label>
+              <div className="auth-form-options">
+                <label className="auth-remember">
+                  <input
+                    checked={rememberMe}
+                    disabled={submitting || isPending}
+                    onChange={(event) => setRememberMe(event.target.checked)}
+                    type="checkbox"
+                  />
+                  Keep me signed in
+                </label>
+                <Link href="/forgot-password">Forgot password?</Link>
+              </div>
             )}
+
+            {notice ? (
+              <div className="auth-success" role="status">
+                <p>{notice}</p>
+                {mode === "sign-up" ? (
+                  <button disabled={resending} onClick={handleResend} type="button">
+                    {resending ? "Sending…" : "Resend verification email"}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             {error ? (
               <p className="auth-error" role="alert">
@@ -233,6 +312,7 @@ export function AuthGate() {
           </p>
         </div>
       </section>
+      <LegalFooter className="login-legal-footer" />
     </main>
   );
 }

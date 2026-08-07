@@ -64,6 +64,7 @@ class Aircraft:
     takeoff_ground_roll_ft: float = 960
     climb_rate_fpm: float = 730
     airborne_acceleration_kt_per_second: float = 1
+    minimum_maneuver_speed_kt: float = 80
     takeoff_roll_seconds: float = 0
     final_approach_speed_kt: float = 65
     landing_roll_ft: float = 575

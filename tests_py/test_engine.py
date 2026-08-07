@@ -246,6 +246,31 @@ class SimulationTests(unittest.TestCase):
         simulation.step()
         self.assertEqual(arrival.speed_kt, 101)
 
+    def test_speed_below_aircraft_maneuver_minimum_is_rejected(self) -> None:
+        simulation = make_simulation()
+        arrival = simulation.aircraft["N172SP"]
+        original_target = arrival.target_speed_kt
+
+        event = simulation.issue("N172SP", "S 60")
+
+        self.assertEqual(event.event_type, "command_rejected")
+        self.assertEqual(event.detail["reason"], "below normal-flight minimum")
+        self.assertEqual(event.detail["minimum_speed_kt"], 80)
+        self.assertEqual(arrival.target_speed_kt, original_target)
+
+    def test_landing_procedure_can_use_final_speed_below_maneuver_minimum(self) -> None:
+        simulation = make_simulation()
+        arrival = simulation.aircraft["N172SP"]
+
+        event = simulation.issue("N172SP", "L 21")
+
+        self.assertEqual(event.event_type, "clearance_accepted")
+        self.assertEqual(arrival.target_speed_kt, arrival.final_approach_speed_kt)
+        self.assertLess(
+            arrival.target_speed_kt,
+            arrival.minimum_maneuver_speed_kt,
+        )
+
     def test_replay_is_deterministic(self) -> None:
         first = make_simulation()
         second = make_simulation()

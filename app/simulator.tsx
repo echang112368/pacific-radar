@@ -2,10 +2,16 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { KSMO_RUNWAY } from "../lib/ksmo-airport";
+import {
+  AirportCode,
+  AirportDefinition,
+  FlightKind,
+  KSMO_AIRPORT,
+  WakeCategory,
+  airportFor,
+  runwayForEnd,
+} from "../lib/airports";
 
-type FlightKind = "arrival" | "departure";
-type RunwayEnd = "03" | "21";
 type FlightStatus =
   | "INBOUND"
   | "APPROACH"
@@ -31,9 +37,10 @@ type TrackPoint = {
 };
 
 type Aircraft = {
+  airport: AirportCode;
   callsign: string;
   type: string;
-  wake: "L" | "M";
+  wake: WakeCategory;
   kind: FlightKind;
   status: FlightStatus;
   x: number;
@@ -47,7 +54,7 @@ type Aircraft = {
   groundSpeed?: number;
   groundTrack?: number;
   landingCleared?: boolean;
-  runway?: RunwayEnd;
+  runway?: string;
   approach?: string;
   exitFix?: string;
   departureAltitudeAssigned?: boolean;
@@ -90,6 +97,7 @@ type SimulationFailure =
     };
 
 type World = {
+  airport: AirportCode;
   tick: number;
   trafficSequence: number;
   trafficSeed: number;
@@ -113,34 +121,6 @@ type HighScore = {
   elapsed: string;
 };
 
-type AirportTrafficProfile = {
-  airport: string;
-  runwayCount: number;
-  initialSpacingSeconds: number;
-  minimumSpacingSeconds: number;
-  rampEveryMovements: number;
-  spacingReductionSeconds: number;
-};
-
-function trafficSpacingForRunways(runwayCount: number) {
-  const capacityScale = Math.sqrt(Math.max(1, runwayCount));
-
-  return {
-    initialSpacingSeconds: Math.round(60 / capacityScale),
-    minimumSpacingSeconds: Math.round(36 / capacityScale),
-  };
-}
-
-const SMO_TRAFFIC_PROFILE: AirportTrafficProfile = {
-  airport: "KSMO",
-  runwayCount: 1,
-  ...trafficSpacingForRunways(1),
-  rampEveryMovements: 6,
-  spacingReductionSeconds: 3,
-};
-
-const RUNWAY = KSMO_RUNWAY;
-
 const SIMULATION_TICKS_PER_SECOND = 4;
 const FEET_PER_NAUTICAL_MILE = 6076.12;
 const COLLISION_DISTANCE_FEET = 500;
@@ -161,19 +141,15 @@ const FIRST_TRAFFIC_MIN_SECONDS = 6;
 const FIRST_TRAFFIC_MAX_SECONDS = 10;
 const TRAFFIC_INTERVAL_JITTER = 0.38;
 const ABSOLUTE_MIN_TRAFFIC_SPACING_SECONDS = 24;
-const INITIAL_TRAFFIC_INTERVAL_TICKS =
-  SMO_TRAFFIC_PROFILE.initialSpacingSeconds *
-  SIMULATION_TICKS_PER_SECOND;
-const MINIMUM_TRAFFIC_INTERVAL_TICKS =
-  SMO_TRAFFIC_PROFILE.minimumSpacingSeconds *
-  SIMULATION_TICKS_PER_SECOND;
 const TRACK_SAMPLE_SECONDS = 1;
 const TRACK_HISTORY_SECONDS = 15;
 const TRACK_SAMPLE_TICKS =
   SIMULATION_TICKS_PER_SECOND * TRACK_SAMPLE_SECONDS;
 const TRACK_HISTORY_TICKS =
   SIMULATION_TICKS_PER_SECOND * TRACK_HISTORY_SECONDS;
-const SCOPE_NM_PER_WORLD_UNIT = 0.35;
+const FINAL_APPROACH_GATE_NM = 2.45;
+const GO_AROUND_GATE_NM = 0.42;
+const GLIDE_SLOPE_FEET_PER_NM = 329;
 const LINE_UP_DELAY_SECONDS = 1.5;
 const LINE_UP_TICKS = Math.round(
   SIMULATION_TICKS_PER_SECOND * LINE_UP_DELAY_SECONDS,
@@ -195,6 +171,23 @@ const AIRCRAFT_BANK_LIMIT_DEGREES: Record<string, number> = {
   E145: 25,
   E175: 25,
   B738: 25,
+  CRJ7: 25,
+  CRJ2: 25,
+  BCS3: 25,
+  A320: 25,
+  A21N: 25,
+  B712: 25,
+  B752: 25,
+  B38M: 25,
+  B39M: 25,
+  B739: 25,
+  B763: 25,
+  B77W: 25,
+  B789: 25,
+  A359: 25,
+  A333: 25,
+  A388: 20,
+  B748: 20,
 };
 const KNOT_TO_FEET_PER_SECOND = 1.68781;
 const AIRCRAFT_PERFORMANCE: Record<
@@ -205,6 +198,9 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: number;
     climbRateFeetPerMinute: number;
     airborneAccelerationKnotsPerSecond: number;
+    minimumManeuverSpeedKnots: number;
+    terminalSpeedKnots: number;
+    cruiseSpeedKnots: number;
     finalApproachSpeed: number;
     landingRollFeet: number;
   }
@@ -215,6 +211,9 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 1135,
     climbRateFeetPerMinute: 667,
     airborneAccelerationKnotsPerSecond: 1,
+    minimumManeuverSpeedKnots: 80,
+    terminalSpeedKnots: 115,
+    cruiseSpeedKnots: 124,
     finalApproachSpeed: 66,
     landingRollFeet: 920,
   },
@@ -224,6 +223,9 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 960,
     climbRateFeetPerMinute: 730,
     airborneAccelerationKnotsPerSecond: 1,
+    minimumManeuverSpeedKnots: 80,
+    terminalSpeedKnots: 115,
+    cruiseSpeedKnots: 122,
     finalApproachSpeed: 65,
     landingRollFeet: 575,
   },
@@ -233,6 +235,9 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 1850,
     climbRateFeetPerMinute: 1920,
     airborneAccelerationKnotsPerSecond: 2,
+    minimumManeuverSpeedKnots: 105,
+    terminalSpeedKnots: 175,
+    cruiseSpeedKnots: 290,
     finalApproachSpeed: 85,
     landingRollFeet: 1830,
   },
@@ -242,6 +247,9 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 2900,
     climbRateFeetPerMinute: 3500,
     airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 130,
+    terminalSpeedKnots: 210,
+    cruiseSpeedKnots: 404,
     finalApproachSpeed: 105,
     landingRollFeet: 2200,
   },
@@ -251,6 +259,9 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 4200,
     climbRateFeetPerMinute: 2500,
     airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 150,
+    terminalSpeedKnots: 190,
+    cruiseSpeedKnots: 447,
     finalApproachSpeed: 125,
     landingRollFeet: 2500,
   },
@@ -260,6 +271,9 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 4500,
     climbRateFeetPerMinute: 2500,
     airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 160,
+    terminalSpeedKnots: 210,
+    cruiseSpeedKnots: 447,
     finalApproachSpeed: 130,
     landingRollFeet: 2800,
   },
@@ -269,12 +283,220 @@ const AIRCRAFT_PERFORMANCE: Record<
     takeoffGroundRollFeet: 5200,
     climbRateFeetPerMinute: 3000,
     airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 170,
+    terminalSpeedKnots: 225,
+    cruiseSpeedKnots: 453,
     finalApproachSpeed: 140,
     landingRollFeet: 3000,
+  },
+  CRJ7: {
+    rotationSpeed: 128,
+    initialClimbSpeed: 190,
+    takeoffGroundRollFeet: 5200,
+    climbRateFeetPerMinute: 2500,
+    airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 165,
+    terminalSpeedKnots: 205,
+    cruiseSpeedKnots: 447,
+    finalApproachSpeed: 134,
+    landingRollFeet: 2800,
+  },
+  CRJ2: {
+    rotationSpeed: 134,
+    initialClimbSpeed: 180,
+    takeoffGroundRollFeet: 5800,
+    climbRateFeetPerMinute: 2500,
+    airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 150,
+    terminalSpeedKnots: 200,
+    cruiseSpeedKnots: 424,
+    finalApproachSpeed: 137,
+    landingRollFeet: 3000,
+  },
+  BCS3: {
+    rotationSpeed: 135,
+    initialClimbSpeed: 190,
+    takeoffGroundRollFeet: 6200,
+    climbRateFeetPerMinute: 2500,
+    airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 155,
+    terminalSpeedKnots: 210,
+    cruiseSpeedKnots: 447,
+    finalApproachSpeed: 130,
+    landingRollFeet: 3400,
+  },
+  A320: {
+    rotationSpeed: 140,
+    initialClimbSpeed: 200,
+    takeoffGroundRollFeet: 6200,
+    climbRateFeetPerMinute: 2500,
+    airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 160,
+    terminalSpeedKnots: 220,
+    cruiseSpeedKnots: 450,
+    finalApproachSpeed: 135,
+    landingRollFeet: 3300,
+  },
+  A21N: {
+    rotationSpeed: 150,
+    initialClimbSpeed: 210,
+    takeoffGroundRollFeet: 6500,
+    climbRateFeetPerMinute: 2500,
+    airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 165,
+    terminalSpeedKnots: 225,
+    cruiseSpeedKnots: 450,
+    finalApproachSpeed: 136,
+    landingRollFeet: 3500,
+  },
+  B712: {
+    rotationSpeed: 130,
+    initialClimbSpeed: 190,
+    takeoffGroundRollFeet: 5100,
+    climbRateFeetPerMinute: 2800,
+    airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 155,
+    terminalSpeedKnots: 210,
+    cruiseSpeedKnots: 440,
+    finalApproachSpeed: 130,
+    landingRollFeet: 3000,
+  },
+  B752: {
+    rotationSpeed: 145,
+    initialClimbSpeed: 210,
+    takeoffGroundRollFeet: 6500,
+    climbRateFeetPerMinute: 3000,
+    airborneAccelerationKnotsPerSecond: 2.4,
+    minimumManeuverSpeedKnots: 170,
+    terminalSpeedKnots: 230,
+    cruiseSpeedKnots: 461,
+    finalApproachSpeed: 140,
+    landingRollFeet: 3800,
+  },
+  B38M: {
+    rotationSpeed: 145,
+    initialClimbSpeed: 205,
+    takeoffGroundRollFeet: 6000,
+    climbRateFeetPerMinute: 3000,
+    airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 170,
+    terminalSpeedKnots: 230,
+    cruiseSpeedKnots: 453,
+    finalApproachSpeed: 139,
+    landingRollFeet: 3300,
+  },
+  B39M: {
+    rotationSpeed: 150,
+    initialClimbSpeed: 210,
+    takeoffGroundRollFeet: 6600,
+    climbRateFeetPerMinute: 2800,
+    airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 175,
+    terminalSpeedKnots: 230,
+    cruiseSpeedKnots: 453,
+    finalApproachSpeed: 145,
+    landingRollFeet: 3600,
+  },
+  B739: {
+    rotationSpeed: 148,
+    initialClimbSpeed: 205,
+    takeoffGroundRollFeet: 6300,
+    climbRateFeetPerMinute: 2800,
+    airborneAccelerationKnotsPerSecond: 2.5,
+    minimumManeuverSpeedKnots: 175,
+    terminalSpeedKnots: 225,
+    cruiseSpeedKnots: 453,
+    finalApproachSpeed: 143,
+    landingRollFeet: 3500,
+  },
+  B763: {
+    rotationSpeed: 155,
+    initialClimbSpeed: 210,
+    takeoffGroundRollFeet: 7000,
+    climbRateFeetPerMinute: 2500,
+    airborneAccelerationKnotsPerSecond: 2.2,
+    minimumManeuverSpeedKnots: 175,
+    terminalSpeedKnots: 235,
+    cruiseSpeedKnots: 459,
+    finalApproachSpeed: 145,
+    landingRollFeet: 4100,
+  },
+  B789: {
+    rotationSpeed: 158,
+    initialClimbSpeed: 215,
+    takeoffGroundRollFeet: 8500,
+    climbRateFeetPerMinute: 2500,
+    airborneAccelerationKnotsPerSecond: 2.2,
+    minimumManeuverSpeedKnots: 175,
+    terminalSpeedKnots: 240,
+    cruiseSpeedKnots: 488,
+    finalApproachSpeed: 145,
+    landingRollFeet: 4500,
+  },
+  B77W: {
+    rotationSpeed: 165,
+    initialClimbSpeed: 220,
+    takeoffGroundRollFeet: 9000,
+    climbRateFeetPerMinute: 2200,
+    airborneAccelerationKnotsPerSecond: 2,
+    minimumManeuverSpeedKnots: 180,
+    terminalSpeedKnots: 240,
+    cruiseSpeedKnots: 482,
+    finalApproachSpeed: 150,
+    landingRollFeet: 5000,
+  },
+  A359: {
+    rotationSpeed: 155,
+    initialClimbSpeed: 215,
+    takeoffGroundRollFeet: 8200,
+    climbRateFeetPerMinute: 2500,
+    airborneAccelerationKnotsPerSecond: 2.2,
+    minimumManeuverSpeedKnots: 175,
+    terminalSpeedKnots: 240,
+    cruiseSpeedKnots: 488,
+    finalApproachSpeed: 145,
+    landingRollFeet: 4500,
+  },
+  A333: {
+    rotationSpeed: 155,
+    initialClimbSpeed: 215,
+    takeoffGroundRollFeet: 8500,
+    climbRateFeetPerMinute: 2200,
+    airborneAccelerationKnotsPerSecond: 2,
+    minimumManeuverSpeedKnots: 175,
+    terminalSpeedKnots: 235,
+    cruiseSpeedKnots: 470,
+    finalApproachSpeed: 145,
+    landingRollFeet: 4700,
+  },
+  A388: {
+    rotationSpeed: 165,
+    initialClimbSpeed: 215,
+    takeoffGroundRollFeet: 9500,
+    climbRateFeetPerMinute: 1800,
+    airborneAccelerationKnotsPerSecond: 1.8,
+    minimumManeuverSpeedKnots: 170,
+    terminalSpeedKnots: 235,
+    cruiseSpeedKnots: 488,
+    finalApproachSpeed: 138,
+    landingRollFeet: 5200,
+  },
+  B748: {
+    rotationSpeed: 170,
+    initialClimbSpeed: 220,
+    takeoffGroundRollFeet: 10000,
+    climbRateFeetPerMinute: 2000,
+    airborneAccelerationKnotsPerSecond: 1.8,
+    minimumManeuverSpeedKnots: 180,
+    terminalSpeedKnots: 240,
+    cruiseSpeedKnots: 493,
+    finalApproachSpeed: 150,
+    landingRollFeet: 5200,
   },
 };
 
 const INITIAL_WORLD: World = {
+  airport: "KSMO",
   tick: 0,
   trafficSequence: 0,
   trafficSeed: 0,
@@ -301,56 +523,36 @@ const INITIAL_WORLD: World = {
   ],
 };
 
-const FIXES = [
-  { name: "DARTS", x: 73, y: 28, kind: "fix" },
-  { name: "MORVE", x: 67, y: 42, kind: "fix" },
-  { name: "WAKER", x: 29, y: 38, kind: "fix" },
-  { name: "SMO", x: 50, y: 50, kind: "vor" },
-  { name: "VNY", x: 44, y: 6, kind: "vor" },
-  { name: "LAX", x: 57, y: 68, kind: "vor" },
-  { name: "HHR", x: 68, y: 72, kind: "vor" },
-  { name: "NATJU", x: 78, y: 61, kind: "fix" },
-];
+function initialWorldFor(airportCode: AirportCode): World {
+  const airport = airportFor(airportCode);
+  return {
+    ...INITIAL_WORLD,
+    airport: airportCode,
+    events: airport.initialEvents.map((message) => ({
+      tick: 0,
+      tone: "system" as const,
+      message,
+    })),
+  };
+}
 
-const EXIT_FIXES = [
-  { name: "VNY", x: 20, y: 2, edge: "north" },
-  { name: "HOLTZ", x: 98, y: 22, edge: "east" },
-  { name: "SADDE", x: 98, y: 73, edge: "east" },
-  { name: "LAXX", x: 66, y: 98, edge: "south" },
-  { name: "MALIBU", x: 2, y: 70, edge: "west" },
-] as const;
-
-const CONTINUOUS_ENTRY_ROUTES = [
-  { x: 99.4, y: 12, heading: 246, runway: "21" as RunwayEnd },
-  { x: 99.4, y: 76, heading: 304, runway: "03" as RunwayEnd },
-  { x: 0.6, y: 34, heading: 96, runway: "03" as RunwayEnd },
-  { x: 24, y: 0.6, heading: 154, runway: "21" as RunwayEnd },
-  { x: 72, y: 99.4, heading: 330, runway: "03" as RunwayEnd },
-] as const;
-
-const CONTINUOUS_ARRIVAL_TYPES = ["C172", "PC12", "C25A", "E145", "E175"];
-const CONTINUOUS_DEPARTURE_TYPES = ["PA28", "C172", "PC12", "C25A"];
-const CONTINUOUS_CALLSIGN_PREFIXES = ["SKW", "JSX", "N", "SURF", "UAL", "RPA"];
-const ENTRY_SPEEDS: Record<string, number> = {
-  PA28: 115,
-  C172: 115,
-  PC12: 175,
-  C25A: 210,
-  E145: 190,
-  E175: 210,
-};
-
-function continuousTrafficIntervalTicks(sequence: number) {
+function continuousTrafficIntervalTicks(
+  sequence: number,
+  airport: AirportDefinition = KSMO_AIRPORT,
+) {
   const reductionSteps = Math.floor(
-    sequence / SMO_TRAFFIC_PROFILE.rampEveryMovements,
+    sequence / airport.traffic.rampEveryMovements,
   );
   const interval =
-    INITIAL_TRAFFIC_INTERVAL_TICKS -
+    airport.traffic.initialSpacingSeconds * SIMULATION_TICKS_PER_SECOND -
     reductionSteps *
-      SMO_TRAFFIC_PROFILE.spacingReductionSeconds *
+      airport.traffic.spacingReductionSeconds *
       SIMULATION_TICKS_PER_SECOND;
 
-  return Math.max(MINIMUM_TRAFFIC_INTERVAL_TICKS, interval);
+  return Math.max(
+    airport.traffic.minimumSpacingSeconds * SIMULATION_TICKS_PER_SECOND,
+    interval,
+  );
 }
 
 function trafficRandomUnit(seed: number, sequence: number) {
@@ -374,20 +576,29 @@ function randomizedFirstTrafficTick(seed: number) {
   return Math.round(seconds * SIMULATION_TICKS_PER_SECOND);
 }
 
-function randomizedTrafficIntervalTicks(sequence: number, seed: number) {
-  const baseInterval = continuousTrafficIntervalTicks(sequence);
+function randomizedTrafficIntervalTicks(
+  sequence: number,
+  seed: number,
+  airport: AirportDefinition = KSMO_AIRPORT,
+) {
+  const baseInterval = continuousTrafficIntervalTicks(sequence, airport);
   const multiplier =
     1 - TRAFFIC_INTERVAL_JITTER +
     trafficRandomUnit(seed, sequence) * TRAFFIC_INTERVAL_JITTER * 2;
-  const minimumInterval =
-    ABSOLUTE_MIN_TRAFFIC_SPACING_SECONDS * SIMULATION_TICKS_PER_SECOND;
+  const minimumInterval = Math.min(
+    ABSOLUTE_MIN_TRAFFIC_SPACING_SECONDS,
+    airport.traffic.minimumSpacingSeconds,
+  ) * SIMULATION_TICKS_PER_SECOND;
   return Math.max(minimumInterval, Math.round(baseInterval * multiplier));
 }
 
-function continuousCallsign(sequence: number) {
+function continuousCallsign(
+  sequence: number,
+  airport: AirportDefinition = KSMO_AIRPORT,
+) {
   const prefix =
-    CONTINUOUS_CALLSIGN_PREFIXES[
-      sequence % CONTINUOUS_CALLSIGN_PREFIXES.length
+    airport.callsignPrefixes[
+      sequence % airport.callsignPrefixes.length
     ];
   const number = 1100 + sequence;
   return prefix === "N"
@@ -395,23 +606,38 @@ function continuousCallsign(sequence: number) {
     : `${prefix}${number}`;
 }
 
-function createContinuousTraffic(sequence: number): Aircraft {
+function wakeCategoryFor(type: string): WakeCategory {
+  if (type === "A388") return "J";
+  if (["B748", "B763", "B77W", "B789", "A333", "A359"].includes(type)) return "H";
+  if (["PA28", "C172"].includes(type)) return "L";
+  return "M";
+}
+
+function createContinuousTraffic(
+  sequence: number,
+  airport: AirportDefinition = KSMO_AIRPORT,
+): Aircraft {
   const kind: FlightKind =
     sequence % 2 === 0 ? "departure" : "arrival";
-  const callsign = continuousCallsign(sequence);
+  const movementIndex = Math.floor(sequence / 2);
+  const callsign = continuousCallsign(sequence, airport);
 
   if (kind === "departure") {
-    const runway: RunwayEnd = sequence % 4 === 0 ? "21" : "03";
-    const runwayData = RUNWAY.ends[runway];
-    const type =
-      CONTINUOUS_DEPARTURE_TYPES[
-        sequence % CONTINUOUS_DEPARTURE_TYPES.length
+    const runway =
+      airport.westFlowDepartureRunways[
+        movementIndex % airport.westFlowDepartureRunways.length
       ];
-    const exit = EXIT_FIXES[sequence % EXIT_FIXES.length];
+    const runwayData = airport.runwayEnds[runway];
+    const type =
+      airport.departureTypes[
+        movementIndex % airport.departureTypes.length
+      ];
+    const exit = airport.exitFixes[movementIndex % airport.exitFixes.length];
     return {
+      airport: airport.code,
       callsign,
       type,
-      wake: type === "PA28" || type === "C172" ? "L" : "M",
+      wake: wakeCategoryFor(type),
       kind,
       status: "HOLD_SHORT",
       runway,
@@ -419,8 +645,8 @@ function createContinuousTraffic(sequence: number): Aircraft {
       y: runwayData.hold.y,
       heading: runwayData.heading,
       targetHeading: runwayData.heading,
-      altitude: RUNWAY.elevation,
-      targetAltitude: RUNWAY.elevation,
+      altitude: airport.elevation,
+      targetAltitude: airport.elevation,
       speed: 0,
       targetSpeed: 0,
       exitFix: exit.name,
@@ -430,19 +656,23 @@ function createContinuousTraffic(sequence: number): Aircraft {
   }
 
   const entry =
-    CONTINUOUS_ENTRY_ROUTES[
-      sequence % CONTINUOUS_ENTRY_ROUTES.length
+    airport.entryRoutes[
+      movementIndex % airport.entryRoutes.length
     ];
   const type =
-    CONTINUOUS_ARRIVAL_TYPES[
-      sequence % CONTINUOUS_ARRIVAL_TYPES.length
+    airport.arrivalTypes[
+      movementIndex % airport.arrivalTypes.length
     ];
   const altitude = 4800 + (sequence % 5) * 600;
-  const speed = ENTRY_SPEEDS[type];
+  const speed =
+    airport.entrySpeeds[type] ??
+    AIRCRAFT_PERFORMANCE[type]?.terminalSpeedKnots ??
+    210;
   return {
+    airport: airport.code,
     callsign,
     type,
-    wake: type === "C172" ? "L" : "M",
+    wake: wakeCategoryFor(type),
     kind,
     status: "INBOUND",
     runway: entry.runway,
@@ -549,10 +779,21 @@ function turnDegreesPerTick(flight: Aircraft) {
   );
 }
 
-function groundTravelForKnots(speedKnots: number) {
+function scopeNmPerWorldUnit(airportCode: AirportCode) {
+  return airportFor(airportCode).scopeRangeNm / 100;
+}
+
+function worldUnitsForNauticalMiles(
+  distanceNm: number,
+  airportCode: AirportCode,
+) {
+  return distanceNm / scopeNmPerWorldUnit(airportCode);
+}
+
+function groundTravelForKnots(speedKnots: number, airportCode: AirportCode) {
   const elapsedHoursPerTick = 1 / SIMULATION_TICKS_PER_SECOND / 3600;
   const nauticalMilesPerTick = speedKnots * elapsedHoursPerTick;
-  return nauticalMilesPerTick / SCOPE_NM_PER_WORLD_UNIT;
+  return worldUnitsForNauticalMiles(nauticalMilesPerTick, airportCode);
 }
 
 function appendEvent(world: World, tone: EventItem["tone"], message: string) {
@@ -562,10 +803,13 @@ function appendEvent(world: World, tone: EventItem["tone"], message: string) {
   };
 }
 
-function findNavFix(name: string) {
+function findNavFix(
+  name: string | undefined,
+  airport: AirportDefinition = KSMO_AIRPORT,
+) {
   return (
-    FIXES.find((fix) => fix.name === name) ??
-    EXIT_FIXES.find((fix) => fix.name === name)
+    airport.fixes.find((fix) => fix.name === name) ??
+    airport.exitFixes.find((fix) => fix.name === name)
   );
 }
 
@@ -574,7 +818,10 @@ function angularDifference(first: number, second: number) {
 }
 
 function distance(a: Aircraft, b: Aircraft) {
-  return Math.hypot(a.x - b.x, a.y - b.y) * 0.35;
+  return (
+    Math.hypot(a.x - b.x, a.y - b.y) *
+    scopeNmPerWorldUnit(a.airport)
+  );
 }
 
 function headingToPoint(
@@ -587,26 +834,44 @@ function headingToPoint(
   );
 }
 
-function isRunwayEnd(value: string | undefined): value is RunwayEnd {
-  return value === "03" || value === "21";
+function isRunwayEnd(
+  value: string | undefined,
+  airport: AirportDefinition = KSMO_AIRPORT,
+): value is string {
+  return Boolean(value && airport.runwayEnds[value]);
 }
 
-function normalizeRunwayEnd(value: string | undefined) {
+function normalizeRunwayEnd(
+  value: string | undefined,
+  airport: AirportDefinition = KSMO_AIRPORT,
+) {
   const normalized = value?.replace("RWY", "");
-  return isRunwayEnd(normalized) ? normalized : null;
+  return isRunwayEnd(normalized, airport) ? normalized : null;
 }
 
 function runwayEndFor(flight: Aircraft) {
-  return RUNWAY.ends[flight.runway ?? "21"];
+  const airport = airportFor(flight.airport);
+  const fallback = airport.westFlowArrivalRunways[0];
+  return airport.runwayEnds[flight.runway ?? fallback];
+}
+
+function physicalRunwayForFlight(flight: Aircraft) {
+  return runwayEndFor(flight).physicalRunway;
+}
+
+function sharesPhysicalRunway(first: Aircraft, second: Aircraft) {
+  return physicalRunwayForFlight(first) === physicalRunwayForFlight(second);
 }
 
 function groundMotionBetween(
   from: Pick<TrackPoint, "x" | "y" | "tick">,
   to: Pick<TrackPoint, "x" | "y" | "tick">,
+  airportCode: AirportCode,
 ) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
-  const distanceNm = Math.hypot(dx, dy) * SCOPE_NM_PER_WORLD_UNIT;
+  const distanceNm =
+    Math.hypot(dx, dy) * scopeNmPerWorldUnit(airportCode);
   const elapsedSeconds = Math.max(
     (to.tick - from.tick) / SIMULATION_TICKS_PER_SECOND,
     1 / SIMULATION_TICKS_PER_SECOND,
@@ -631,7 +896,7 @@ function appendGroundTrackSample(
 
   const current = { x: flight.x, y: flight.y, tick };
   const origin = retained.at(-1) ?? previousPosition;
-  const motion = groundMotionBetween(origin, current);
+  const motion = groundMotionBetween(origin, current, flight.airport);
   const groundTrack =
     motion.groundSpeed > 0.5
       ? motion.groundTrack
@@ -693,6 +958,7 @@ function hasPassedRunwayDepartureEnd(flight: Aircraft) {
 
 function stepWorld(previous: World): World {
   if (previous.failure) return previous;
+  const airport = airportFor(previous.airport);
   let world: World = { ...previous, tick: previous.tick + 1 };
   const stepped = previous.aircraft.map((flight) => {
     if (
@@ -719,10 +985,13 @@ function stepWorld(previous: World): World {
     ].includes(next.status);
 
     if (next.status === "HOLDING" && next.holdFix) {
-      const holdFix = findNavFix(next.holdFix);
+      const holdFix = findNavFix(next.holdFix, airport);
       if (holdFix) {
         const holdDistance = Math.hypot(next.x - holdFix.x, next.y - holdFix.y);
-        if (holdDistance > 2.6) {
+        if (
+          holdDistance >
+          worldUnitsForNauticalMiles(0.91, next.airport)
+        ) {
           next.targetHeading = Math.round(headingToPoint(next, holdFix));
           next.turnDirection = undefined;
         } else {
@@ -772,7 +1041,7 @@ function stepWorld(previous: World): World {
       next.speed > 0
     ) {
       const radians = (next.heading * Math.PI) / 180;
-      const travel = groundTravelForKnots(next.speed);
+      const travel = groundTravelForKnots(next.speed, next.airport);
       next.x += Math.sin(radians) * travel;
       next.y -= Math.cos(radians) * travel;
     }
@@ -830,20 +1099,24 @@ function stepWorld(previous: World): World {
       const dx = runway.threshold.x - next.x;
       const dy = runway.threshold.y - next.y;
       const dist = Math.hypot(dx, dy);
-      const travel = groundTravelForKnots(next.speed);
+      const distNm = dist * scopeNmPerWorldUnit(next.airport);
+      const travel = groundTravelForKnots(next.speed, next.airport);
       const approachTravel = Math.min(dist, travel);
       next.x += (dx / Math.max(dist, 0.01)) * approachTravel;
       next.y += (dy / Math.max(dist, 0.01)) * approachTravel;
       next.targetHeading = runway.heading;
-      next.targetAltitude = Math.max(177, Math.min(next.altitude, dist * 115));
+      next.targetAltitude = Math.max(
+        airport.elevation,
+        Math.min(next.altitude, distNm * GLIDE_SLOPE_FEET_PER_NM),
+      );
       next.targetSpeed = performanceFor(next).finalApproachSpeed;
 
-      if (dist < 7) next.status = "FINAL";
-      if (dist < 1.2 && !next.landingCleared) {
+      if (distNm < FINAL_APPROACH_GATE_NM) next.status = "FINAL";
+      if (distNm < GO_AROUND_GATE_NM && !next.landingCleared) {
         next.status = "GO_AROUND";
         next.targetHeading = runway.heading;
-        next.targetAltitude = 3000;
-        next.targetSpeed = next.wake === "M" ? 170 : 110;
+        next.targetAltitude = airport.elevation + 3000;
+        next.targetSpeed = next.wake === "L" ? 110 : 170;
         next.landingCleared = false;
         world = appendEvent(
           world,
@@ -852,15 +1125,19 @@ function stepWorld(previous: World): World {
         );
       } else if (
         next.landingCleared &&
-        dist <= Math.max(travel, 0.04)
+        dist <=
+          Math.max(
+            travel,
+            worldUnitsForNauticalMiles(0.014, next.airport),
+          )
       ) {
         next.status = "LANDING_ROLL";
         next.x = runway.threshold.x;
         next.y = runway.threshold.y;
         next.heading = runway.heading;
         next.targetHeading = runway.heading;
-        next.altitude = 177;
-        next.targetAltitude = 177;
+        next.altitude = airport.elevation;
+        next.targetAltitude = airport.elevation;
         next.targetSpeed = 0;
         next.landingRollTicks = 0;
         next.landingDistanceFeet = 0;
@@ -868,7 +1145,7 @@ function stepWorld(previous: World): World {
         world = appendEvent(
           world,
           "pilot",
-          `${next.callsign}: Touchdown Runway ${next.runway ?? "21"}, rolling out.`,
+          `${next.callsign}: Touchdown Runway ${next.runway ?? airport.westFlowArrivalRunways[0]}, rolling out.`,
         );
       }
     }
@@ -884,8 +1161,8 @@ function stepWorld(previous: World): World {
           SIMULATION_TICKS_PER_SECOND,
       );
       next.targetSpeed = 0;
-      next.altitude = RUNWAY.elevation;
-      next.targetAltitude = RUNWAY.elevation;
+      next.altitude = airport.elevation;
+      next.targetAltitude = airport.elevation;
       next.heading = runway.heading;
       next.targetHeading = runway.heading;
       const averageSpeed = (previousSpeed + next.speed) / 2;
@@ -895,8 +1172,9 @@ function stepWorld(previous: World): World {
         SIMULATION_TICKS_PER_SECOND;
       next.landingDistanceFeet =
         (next.landingDistanceFeet ?? 0) + distanceThisTickFeet;
+      const physicalRunway = runwayForEnd(airport, next.runway ?? "");
       const runwayProgress = clamp(
-        next.landingDistanceFeet / RUNWAY.lengthFeet,
+        next.landingDistanceFeet / (physicalRunway?.lengthFeet ?? 3500),
         0,
         1,
       );
@@ -916,7 +1194,7 @@ function stepWorld(previous: World): World {
         world = appendEvent(
           world,
           "success",
-          `${next.callsign}: Clear of Runway ${next.runway ?? "21"}. Landing complete.`,
+          `${next.callsign}: Clear of Runway ${next.runway ?? airport.westFlowArrivalRunways[0]}. Landing complete.`,
         );
       }
     }
@@ -937,13 +1215,16 @@ function stepWorld(previous: World): World {
         takeoffAccelerationKnotsPerSecond(next) /
           SIMULATION_TICKS_PER_SECOND,
       );
-      const travel = groundTravelForKnots(next.speed);
+      const travel = groundTravelForKnots(next.speed, next.airport);
       next.x += (dx / Math.max(dist, 0.01)) * Math.min(dist, travel);
       next.y += (dy / Math.max(dist, 0.01)) * Math.min(dist, travel);
       if (next.speed >= performance.rotationSpeed) {
         next.status = "DEPARTURE";
         next.targetSpeed = performance.initialClimbSpeed;
-        next.targetAltitude = Math.max(next.targetAltitude, 2500);
+        next.targetAltitude = Math.max(
+          next.targetAltitude,
+          airport.elevation + 2500,
+        );
         next.takeoffRollTicks = undefined;
         next.departureClimbTicks = 0;
       }
@@ -959,7 +1240,7 @@ function stepWorld(previous: World): World {
       );
       const stableInitialClimb =
         next.altitude >=
-          RUNWAY.elevation + INITIAL_TURN_MINIMUM_AGL_FEET &&
+          airport.elevation + INITIAL_TURN_MINIMUM_AGL_FEET &&
         next.speed >= minimumTurnSpeed &&
         next.departureClimbTicks >= INITIAL_TURN_MINIMUM_CLIMB_TICKS;
       if (
@@ -973,13 +1254,15 @@ function stepWorld(previous: World): World {
         next.targetHeading = runwayEndFor(next).heading;
         next.turnDirection = undefined;
       }
-      const exit = EXIT_FIXES.find((fix) => fix.name === next.exitFix);
+      const exit = airport.exitFixes.find((fix) => fix.name === next.exitFix);
       const reachedExit =
-        exit && Math.hypot(next.x - exit.x, next.y - exit.y) < 2.86;
+        exit &&
+        Math.hypot(next.x - exit.x, next.y - exit.y) <
+          worldUnitsForNauticalMiles(1, next.airport);
       const leftScope =
         next.x < 0.5 || next.x > 99.5 || next.y < 0.5 || next.y > 99.5;
 
-      if (reachedExit && next.altitude >= RUNWAY.elevation + 4000) {
+      if (reachedExit && next.altitude >= airport.elevation + 4000) {
         next.status = "HANDOFF";
         next.completed = true;
         world.safeHandoffs += 1;
@@ -1036,11 +1319,15 @@ function stepWorld(previous: World): World {
       );
     }
 
-    const instantaneousMotion = groundMotionBetween(previousPosition, {
-      x: next.x,
-      y: next.y,
-      tick: world.tick,
-    });
+    const instantaneousMotion = groundMotionBetween(
+      previousPosition,
+      {
+        x: next.x,
+        y: next.y,
+        tick: world.tick,
+      },
+      next.airport,
+    );
     next.groundSpeed = instantaneousMotion.groundSpeed;
     if (instantaneousMotion.groundSpeed > 0.5) {
       next.groundTrack = instantaneousMotion.groundTrack;
@@ -1075,7 +1362,7 @@ function stepWorld(previous: World): World {
   if (world.failure) return world;
 
   if (world.tick >= world.nextTrafficTick) {
-    const generated = createContinuousTraffic(world.trafficSequence);
+    const generated = createContinuousTraffic(world.trafficSequence, airport);
     world.aircraft = [...world.aircraft, generated];
     world = {
       ...world,
@@ -1085,6 +1372,7 @@ function stepWorld(previous: World): World {
         randomizedTrafficIntervalTicks(
           world.trafficSequence + 1,
           world.trafficSeed,
+          airport,
         ),
     };
     world = appendEvent(
@@ -1092,7 +1380,7 @@ function stepWorld(previous: World): World {
       "pilot",
       generated.kind === "arrival"
         ? `${generated.callsign}: Entering the terminal area from the scope boundary.`
-        : `${generated.callsign}: Holding short Runway ${generated.runway ?? "21"}, ready for departure.`,
+        : `${generated.callsign}: Holding short Runway ${generated.runway ?? airport.westFlowDepartureRunways[0]}, ready for departure.`,
     );
   }
 
@@ -1182,6 +1470,7 @@ function executeCommand(
   rawCommand: string,
   selectedCallsign: string | null,
 ) {
+  const airport = airportFor(previous.airport);
   const normalized = rawCommand
     .trim()
     .toUpperCase()
@@ -1274,7 +1563,7 @@ function executeCommand(
       if (/^\d{1,2}$/.test(clearance)) {
         const altitude = clamp(
           Number.parseInt(clearance, 10) * 1000,
-          RUNWAY.elevation,
+          airport.elevation,
           20000,
         );
         const expediteToken = tokens[cursor + 2];
@@ -1297,7 +1586,7 @@ function executeCommand(
         continue;
       }
 
-      const fix = findNavFix(clearance);
+      const fix = findNavFix(clearance, airport);
       if (!fix) {
         return reject(`${flight.callsign}: Unknown fix ${clearance}.`);
       }
@@ -1313,7 +1602,10 @@ function executeCommand(
         flight.turnDirection = forcedDirection;
         leaveHold();
       }
-      if (flight.kind === "departure" && EXIT_FIXES.some((item) => item.name === fix.name)) {
+      if (
+        flight.kind === "departure" &&
+        airport.exitFixes.some((item) => item.name === fix.name)
+      ) {
         flight.exitFix = fix.name;
       }
       readbacks.push(
@@ -1351,7 +1643,7 @@ function executeCommand(
       if (!Number.isFinite(altitude)) {
         return reject(`${flight.callsign}: Invalid altitude.`);
       }
-      flight.targetAltitude = clamp(altitude, RUNWAY.elevation, 20000);
+      flight.targetAltitude = clamp(altitude, airport.elevation, 20000);
       if (flight.kind === "departure") flight.departureAltitudeAssigned = true;
       readbacks.push(`maintain ${flight.targetAltitude.toLocaleString()}`);
       cursor += 2;
@@ -1359,7 +1651,7 @@ function executeCommand(
     }
 
     if (["DCT", "DIRECT"].includes(action) && tokens[cursor + 1]) {
-      const fix = findNavFix(tokens[cursor + 1]);
+      const fix = findNavFix(tokens[cursor + 1], airport);
       if (!fix) {
         return reject(`${flight.callsign}: Unknown fix ${tokens[cursor + 1]}.`);
       }
@@ -1370,7 +1662,10 @@ function executeCommand(
         flight.targetHeading = directHeading;
         leaveHold();
       }
-      if (flight.kind === "departure" && EXIT_FIXES.some((item) => item.name === fix.name)) {
+      if (
+        flight.kind === "departure" &&
+        airport.exitFixes.some((item) => item.name === fix.name)
+      ) {
         flight.exitFix = fix.name;
       }
       readbacks.push(`direct ${fix.name}`);
@@ -1379,11 +1674,25 @@ function executeCommand(
     }
 
     if (["S", "SPD", "SPEED"].includes(action) && tokens[cursor + 1]) {
-      const speed = Number.parseInt(tokens[cursor + 1], 10);
-      if (!Number.isFinite(speed)) {
+      const speedToken = tokens[cursor + 1];
+      const speed = Number.parseInt(speedToken, 10);
+      if (!/^\d{2,3}$/.test(speedToken) || !Number.isFinite(speed)) {
         return reject(`${flight.callsign}: Invalid speed.`);
       }
-      flight.targetSpeed = clamp(speed, 60, flight.wake === "M" ? 280 : 160);
+      const performance = performanceFor(flight);
+      const minimumSpeed = performance.minimumManeuverSpeedKnots;
+      const maximumSpeed = flight.wake === "L" ? 160 : 280;
+      if (speed < minimumSpeed) {
+        return reject(
+          `${flight.callsign}: Unable ${speed} knots — ${flight.type} normal-flight minimum is ${minimumSpeed} knots. Approach and landing speeds are managed separately.`,
+        );
+      }
+      if (speed > maximumSpeed) {
+        return reject(
+          `${flight.callsign}: Unable ${speed} knots — allowed command range is ${minimumSpeed}–${maximumSpeed} knots.`,
+        );
+      }
+      flight.targetSpeed = speed;
       readbacks.push(`speed ${flight.targetSpeed} knots`);
       cursor += 2;
       continue;
@@ -1392,17 +1701,19 @@ function executeCommand(
     if (["L", "LDG", "LAND"].includes(action)) {
       const runwayToken = tokens[cursor + 1];
       const runwayName =
-        normalizeRunwayEnd(runwayToken) ?? flight.runway ?? "21";
-      if (runwayToken && !normalizeRunwayEnd(runwayToken)) {
+        normalizeRunwayEnd(runwayToken, airport) ??
+        flight.runway ??
+        airport.westFlowArrivalRunways[0];
+      if (runwayToken && !normalizeRunwayEnd(runwayToken, airport)) {
         return reject(
-          `${flight.callsign}: Unknown runway ${runwayToken}; use 03 or 21.`,
+          `${flight.callsign}: Unknown runway ${runwayToken}; use ${Object.keys(airport.runwayEnds).join(", ")}.`,
         );
       }
-      const runway = RUNWAY.ends[runwayName];
+      const runway = airport.runwayEnds[runwayName];
       if (flight.kind !== "arrival") {
         return reject(`${flight.callsign}: Unable landing clearance.`);
       }
-      if (flight.altitude - RUNWAY.elevation > 3000) {
+      if (flight.altitude - airport.elevation > 3000) {
         return reject(
           `${flight.callsign}: Unable landing clearance above 3,000 feet AGL.`,
         );
@@ -1419,6 +1730,9 @@ function executeCommand(
         (other) =>
           other.callsign !== flight.callsign &&
           !other.completed &&
+          other.runway !== undefined &&
+          airport.runwayEnds[other.runway]?.physicalRunway ===
+            runway.physicalRunway &&
           [
             "LINING_UP",
             "LINE_UP",
@@ -1430,7 +1744,7 @@ function executeCommand(
       );
       if (occupant) {
         return rejectHazard(
-          `${flight.callsign}: Unable — Runway ${RUNWAY.designation} occupied by ${occupant.callsign}.`,
+          `${flight.callsign}: Unable — Runway ${runwayName} occupied by ${occupant.callsign}.`,
         );
       }
       flight.status = "APPROACH";
@@ -1438,7 +1752,7 @@ function executeCommand(
       flight.approach = `RNAV ${runwayName}`;
       flight.landingCleared = true;
       flight.holdFix = undefined;
-      flight.targetSpeed = flight.wake === "M" ? 140 : 95;
+      flight.targetSpeed = performanceFor(flight).finalApproachSpeed;
       readbacks.push(`cleared to land Runway ${runwayName}`);
       cursor += runwayToken ? 2 : 1;
       continue;
@@ -1447,22 +1761,24 @@ function executeCommand(
     if (action === "APP") {
       const runwayToken = tokens[cursor + 1];
       const runwayName =
-        normalizeRunwayEnd(runwayToken) ?? flight.runway ?? "21";
-      if (runwayToken && !normalizeRunwayEnd(runwayToken)) {
+        normalizeRunwayEnd(runwayToken, airport) ??
+        flight.runway ??
+        airport.westFlowArrivalRunways[0];
+      if (runwayToken && !normalizeRunwayEnd(runwayToken, airport)) {
         return reject(
-          `${flight.callsign}: Unknown runway ${runwayToken}; use 03 or 21.`,
+          `${flight.callsign}: Unknown runway ${runwayToken}; use ${Object.keys(airport.runwayEnds).join(", ")}.`,
         );
       }
       if (flight.kind !== "arrival") {
         return reject(`${flight.callsign}: Unable approach clearance.`);
       }
-      if (flight.altitude - RUNWAY.elevation > 3000) {
+      if (flight.altitude - airport.elevation > 3000) {
         return reject(`${flight.callsign}: Descend below 3,000 AGL first.`);
       }
       flight.status = "APPROACH";
       flight.runway = runwayName;
       flight.approach = `RNAV ${runwayName}`;
-      flight.targetSpeed = flight.wake === "M" ? 140 : 95;
+      flight.targetSpeed = performanceFor(flight).finalApproachSpeed;
       readbacks.push(`cleared approach Runway ${runwayName}`);
       cursor += runwayToken ? 2 : 1;
       continue;
@@ -1476,6 +1792,7 @@ function executeCommand(
         (other) =>
           other.callsign !== flight.callsign &&
           !other.completed &&
+          sharesPhysicalRunway(other, flight) &&
           [
             "LINING_UP",
             "LINE_UP",
@@ -1490,11 +1807,12 @@ function executeCommand(
           other.callsign !== flight.callsign &&
           other.kind === "arrival" &&
           other.status === "FINAL" &&
+          sharesPhysicalRunway(other, flight) &&
           !other.completed,
       );
       if (occupant || final) {
         return rejectHazard(
-          `${flight.callsign}: Unable line up — Runway ${RUNWAY.designation} is not available.`,
+          `${flight.callsign}: Unable line up — Runway ${flight.runway} is not available.`,
         );
       }
       const runway = runwayEndFor(flight);
@@ -1505,7 +1823,9 @@ function executeCommand(
       flight.targetSpeed = 0;
       flight.groundSequenceTicks = LINE_UP_TICKS;
       flight.takeoffAfterLineup = false;
-      readbacks.push(`Runway ${flight.runway ?? "21"}, line up and wait`);
+      readbacks.push(
+        `Runway ${flight.runway ?? airport.westFlowDepartureRunways[0]}, line up and wait`,
+      );
       cursor += 1;
       continue;
     }
@@ -1526,6 +1846,7 @@ function executeCommand(
         (other) =>
           other.callsign !== flight.callsign &&
           !other.completed &&
+          sharesPhysicalRunway(other, flight) &&
           [
             "LINING_UP",
             "LINE_UP",
@@ -1540,11 +1861,12 @@ function executeCommand(
           other.callsign !== flight.callsign &&
           other.kind === "arrival" &&
           other.status === "FINAL" &&
+          sharesPhysicalRunway(other, flight) &&
           !other.completed,
       );
       if (occupant || final) {
         return rejectHazard(
-          `${flight.callsign}: Unable takeoff — Runway ${RUNWAY.designation} is not available.`,
+          `${flight.callsign}: Unable takeoff — Runway ${flight.runway} is not available.`,
         );
       }
       const runway = runwayEndFor(flight);
@@ -1560,14 +1882,16 @@ function executeCommand(
         flight.groundSequenceTicks = LINE_UP_TICKS;
       }
       flight.takeoffAfterLineup = true;
-      readbacks.push(`Runway ${flight.runway ?? "21"}, cleared for takeoff`);
+      readbacks.push(
+        `Runway ${flight.runway ?? airport.westFlowDepartureRunways[0]}, cleared for takeoff`,
+      );
       cursor += 1;
       continue;
     }
 
     if (["H", "HOLD"].includes(action)) {
       const fixName = tokens[cursor + 1];
-      const fix = findNavFix(fixName);
+      const fix = findNavFix(fixName, airport);
       if (
         !fix ||
         [
@@ -1596,9 +1920,9 @@ function executeCommand(
         flight.status = "GO_AROUND";
         flight.landingCleared = false;
         flight.targetHeading = runwayEndFor(flight).heading;
-        flight.targetAltitude = 3000;
-        flight.targetSpeed = flight.wake === "M" ? 170 : 110;
-        readbacks.push(`go around, runway heading, 3,000`);
+        flight.targetAltitude = airport.elevation + 3000;
+        flight.targetSpeed = flight.wake === "L" ? 110 : 170;
+        readbacks.push(`go around, runway heading, 3,000 AGL`);
         cursor += 1;
         continue;
       }
@@ -1621,7 +1945,7 @@ function executeCommand(
         flight.takeoffAfterLineup = false;
         flight.track = [];
         readbacks.push(
-          `abort takeoff, hold short Runway ${flight.runway ?? "21"}`,
+          `abort takeoff, hold short Runway ${flight.runway ?? airport.westFlowDepartureRunways[0]}`,
         );
         cursor += 1;
         continue;
@@ -1634,14 +1958,14 @@ function executeCommand(
         return reject(`${flight.callsign}: Unable taxi from present position.`);
       }
       readbacks.push(
-        `taxi via Alpha, hold short Runway ${flight.runway ?? "21"}`,
+        `taxi via Alpha, hold short Runway ${flight.runway ?? airport.westFlowDepartureRunways[0]}`,
       );
       cursor += 1;
       continue;
     }
 
     return reject(
-      `Command not understood near “${tokens.slice(cursor).join(" ")}”. Try C 035, C 3, C MALIBU, S 100, L 03, L 21, W, T, H SMO, or A.`,
+      `Command not understood near “${tokens.slice(cursor).join(" ")}”. Try C 035, C 3, C ${airport.exitFixes[0].name}, S 180, L ${airport.westFlowArrivalRunways[0]}, W, T, H ${airport.fixes[0].name}, or A.`,
     );
   }
 
@@ -1672,12 +1996,19 @@ function clearedHeading(flight: Aircraft) {
   return flight.departureHeading ?? flight.targetHeading;
 }
 
-export function RadarSimulator() {
+export function RadarSimulator({
+  airportCode = "KSMO",
+}: {
+  airportCode?: AirportCode;
+}) {
+  const airport = airportFor(airportCode);
+  const commandGuideFix =
+    airport.code === "KLAX" ? "SEAVU" : airport.code === "KORD" ? "GCO" : "SMO";
   const [world, setWorld] = useState<World>(() => {
     const trafficSeed =
       typeof window === "undefined" ? 1 : createTrafficSeed();
     return {
-      ...INITIAL_WORLD,
+      ...initialWorldFor(airportCode),
       trafficSeed,
       nextTrafficTick: randomizedFirstTrafficTick(trafficSeed),
     };
@@ -1698,7 +2029,9 @@ export function RadarSimulator() {
   const [highScores, setHighScores] = useState<HighScore[]>(() => {
     if (typeof window === "undefined") return [];
     try {
-      const saved = window.localStorage.getItem("pacific-radar-high-scores");
+      const saved = window.localStorage.getItem(
+        `pacific-radar-high-scores-${airportCode.toLowerCase()}`,
+      );
       return saved ? (JSON.parse(saved) as HighScore[]) : [];
     } catch {
       return [];
@@ -1872,7 +2205,7 @@ export function RadarSimulator() {
       setHighScores(nextScores);
       try {
         window.localStorage.setItem(
-          "pacific-radar-high-scores",
+          `pacific-radar-high-scores-${airportCode.toLowerCase()}`,
           JSON.stringify(nextScores),
         );
       } catch {
@@ -1950,7 +2283,7 @@ export function RadarSimulator() {
   const reset = () => {
     const trafficSeed = createTrafficSeed();
     setWorld({
-      ...INITIAL_WORLD,
+      ...initialWorldFor(airportCode),
       trafficSeed,
       nextTrafficTick: randomizedFirstTrafficTick(trafficSeed),
     });
@@ -1982,25 +2315,27 @@ export function RadarSimulator() {
           </div>
           <div>
             <p className="eyebrow">PACIFIC RADAR · PHASE 0</p>
-            <h1>Santa Monica Tower</h1>
+            <h1>{airport.towerName}</h1>
           </div>
         </Link>
         <div className="status-ribbon" aria-label="Airport conditions">
           <div>
             <span>FIELD</span>
-            <strong>KSMO · 177&apos;</strong>
+            <strong>{airport.code} · {airport.elevation}&apos;</strong>
           </div>
           <div>
             <span>RUNWAY</span>
-            <strong>03 / 21</strong>
+            <strong>
+              {airport.code === "KSMO" ? "03 / 21" : "WEST FLOW"}
+            </strong>
           </div>
           <div>
             <span>WIND</span>
-            <strong>240° / 08 KT</strong>
+            <strong>{airport.wind}</strong>
           </div>
           <div>
             <span>VIS</span>
-            <strong>10+ SM</strong>
+            <strong>{airport.visibility}</strong>
           </div>
           <div>
             <span>SIM</span>
@@ -2027,10 +2362,13 @@ export function RadarSimulator() {
         <div className="radar-column">
           <div className="radar-frame">
             <div
-              className={`radar-map ${showSatellite ? "satellite-on" : "satellite-off"} ${paused ? "simulation-paused" : ""}`}
-              aria-label="Interactive radar map centered on Santa Monica Municipal Airport"
+              className={`radar-map airport-map-${airport.code.toLowerCase()} ${showSatellite ? "satellite-on" : "satellite-off"} ${paused ? "simulation-paused" : ""}`}
+              aria-label={`Interactive radar map centered on ${airport.name}`}
             >
-              <div className="satellite-layer" />
+              <div
+                className="satellite-layer"
+                style={{ backgroundImage: `url(${airport.satelliteImage})` }}
+              />
               <div className="radar-tint" />
               <div className="scope-boundary" />
               <div className="range-ring ring-one" />
@@ -2040,43 +2378,45 @@ export function RadarSimulator() {
                 className="runway-layer"
                 viewBox="0 0 100 100"
                 preserveAspectRatio="none"
-                aria-label={`KSMO Runway ${RUNWAY.designation}`}
+                aria-label={`${airport.code} runways ${airport.runways.map((item) => item.designation).join(", ")}`}
               >
-                <line
-                  className="runway-outline"
-                  x1={RUNWAY.ends["03"].threshold.x}
-                  y1={RUNWAY.ends["03"].threshold.y}
-                  x2={RUNWAY.ends["21"].threshold.x}
-                  y2={RUNWAY.ends["21"].threshold.y}
-                />
-                <line
-                  className="runway-surface"
-                  x1={RUNWAY.ends["03"].threshold.x}
-                  y1={RUNWAY.ends["03"].threshold.y}
-                  x2={RUNWAY.ends["21"].threshold.x}
-                  y2={RUNWAY.ends["21"].threshold.y}
-                />
+                {airport.runways.map((physicalRunway) => {
+                  const first = airport.runwayEnds[physicalRunway.ends[0]];
+                  const second = airport.runwayEnds[physicalRunway.ends[1]];
+                  return (
+                    <g key={physicalRunway.designation}>
+                      <line
+                        className="runway-outline"
+                        x1={first.threshold.x}
+                        y1={first.threshold.y}
+                        x2={second.threshold.x}
+                        y2={second.threshold.y}
+                      />
+                      <line
+                        className="runway-surface"
+                        x1={first.threshold.x}
+                        y1={first.threshold.y}
+                        x2={second.threshold.x}
+                        y2={second.threshold.y}
+                      />
+                    </g>
+                  );
+                })}
               </svg>
-              <span
-                className="runway-end-label runway-end-21"
-                style={{
-                  left: `${RUNWAY.ends["21"].threshold.x}%`,
-                  top: `${RUNWAY.ends["21"].threshold.y}%`,
-                }}
-              >
-                21
-              </span>
-              <span
-                className="runway-end-label runway-end-03"
-                style={{
-                  left: `${RUNWAY.ends["03"].threshold.x}%`,
-                  top: `${RUNWAY.ends["03"].threshold.y}%`,
-                }}
-              >
-                03
-              </span>
+              {Object.values(airport.runwayEnds).map((runwayEnd) => (
+                <span
+                  className={`runway-end-label runway-end-${runwayEnd.id.toLowerCase()}`}
+                  key={runwayEnd.id}
+                  style={{
+                    left: `${runwayEnd.threshold.x}%`,
+                    top: `${runwayEnd.threshold.y}%`,
+                  }}
+                >
+                  {runwayEnd.id}
+                </span>
+              ))}
 
-              {FIXES.map((fix) => (
+              {airport.fixes.map((fix) => (
                 <div
                   className={`fix-marker ${fix.kind}`}
                   key={fix.name}
@@ -2087,7 +2427,7 @@ export function RadarSimulator() {
                 </div>
               ))}
 
-              {EXIT_FIXES.map((fix) => (
+              {airport.exitFixes.map((fix) => (
                 <div
                   className={`exit-marker edge-${fix.edge}`}
                   key={fix.name}
@@ -2186,8 +2526,10 @@ export function RadarSimulator() {
               })}
 
               <div className="map-title">
-                <span>SMO TOWER · 35 NM TERMINAL SCOPE</span>
-                <strong>RWY 03/21 · 3,500 × 150 FT · 5 NM RINGS</strong>
+                <span>
+                  {airport.scopeName} · {airport.scopeRangeNm} NM TERMINAL SCOPE
+                </span>
+                <strong>{airport.runwaySummary}</strong>
               </div>
 
               <div className="map-controls">
@@ -2239,7 +2581,7 @@ export function RadarSimulator() {
           <section className="panel-section radio-section">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">120.100</p>
+                <p className="eyebrow">{airport.radioFrequency}</p>
                 <h2>Radio log</h2>
               </div>
               <span className="live-indicator">LIVE</span>
@@ -2462,15 +2804,23 @@ export function RadarSimulator() {
                 <span>Climb or descend to 3,000, expedited</span>
               </div>
               <div>
-                <code>N172SP C SMO L</code>
-                <span>Direct SMO with a forced left turn</span>
+                <code>N172SP C {commandGuideFix} L</code>
+                <span>
+                  Direct {commandGuideFix} with a forced left turn
+                </span>
               </div>
               <div>
                 <code>N172SP S 100</code>
-                <span>Adjust speed to 100 knots</span>
+                <span>
+                  Adjust speed to 100 knots; commands below that aircraft&apos;s
+                  normal-flight minimum are rejected
+                </span>
               </div>
               <div>
-                <code>N172SP L 03 · L 21</code>
+                <code>
+                  N172SP L {airport.westFlowArrivalRunways[0]} · L{" "}
+                  {airport.westFlowArrivalRunways[1]}
+                </code>
                 <span>Intercept and land from either runway end</span>
               </div>
               <div>
@@ -2486,15 +2836,17 @@ export function RadarSimulator() {
                 <span>Line up if needed, set takeoff power, then begin the roll</span>
               </div>
               <div>
-                <code>N172SP H SMO</code>
-                <span>Hold at SMO</span>
+                <code>
+                  N172SP H {commandGuideFix}
+                </code>
+                <span>Hold at {commandGuideFix}</span>
               </div>
               <div>
                 <code>N172SP A</code>
                 <span>Abort landing or takeoff</span>
               </div>
               <div>
-                <code>N4382K C 5 C MALIBU T</code>
+                <code>N4382K C 5 C {airport.exitFixes.at(-1)?.name} T</code>
                 <span>Combined altitude, route, and takeoff clearance</span>
               </div>
               <div>
@@ -2520,9 +2872,28 @@ export function RadarSimulator() {
                 runway heading.
               </p>
               <p>
-                KSMO has one runway designated 03/21. Runway 21 and Runway 03
-                are opposite ends of that runway. Arrivals may be cleared to
-                either end, and departures use the runway shown on their strip.
+                {airport.code === "KLAX" ? (
+                  <>
+                    KLAX is running normal west flow. Arrivals are assigned to
+                    the outboard Runways 24R and 25L; departures use the inboard
+                    Runways 24L and 25R. Each parallel runway has independent
+                    occupancy, so both complexes can operate simultaneously.
+                  </>
+                ) : airport.code === "KORD" ? (
+                  <>
+                    KORD is running its dominant west flow. Arrivals use
+                    Runways 27R, 27C, 27L, and 28C; departures use 28R and 22L.
+                    The 04L/22R crosswind runway is drawn in its surveyed
+                    position but is not active in this flow.
+                  </>
+                ) : (
+                  <>
+                    KSMO has one runway designated 03/21. Runway 21 and Runway
+                    03 are opposite ends of that runway. Arrivals may be cleared
+                    to either end, and departures use the runway shown on their
+                    strip.
+                  </>
+                )}
               </p>
             </div>
             <button

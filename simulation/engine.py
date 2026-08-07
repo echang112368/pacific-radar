@@ -121,7 +121,21 @@ class Simulation:
                 continue
 
             if action in {"S", "SPD", "SPEED"} and cursor + 1 < len(tokens):
-                aircraft.target_speed_kt = max(60, int(tokens[cursor + 1]))
+                speed_token = tokens[cursor + 1]
+                if not speed_token.isdigit():
+                    return self._event(
+                        "command_rejected", callsign, reason="invalid speed"
+                    )
+                requested_speed = int(speed_token)
+                if requested_speed < aircraft.minimum_maneuver_speed_kt:
+                    return self._event(
+                        "command_rejected",
+                        callsign,
+                        reason="below normal-flight minimum",
+                        requested_speed_kt=requested_speed,
+                        minimum_speed_kt=aircraft.minimum_maneuver_speed_kt,
+                    )
+                aircraft.target_speed_kt = requested_speed
                 clearances.append("speed")
                 cursor += 2
                 continue
@@ -161,6 +175,7 @@ class Simulation:
                 aircraft.landing_cleared = True
                 aircraft.assigned_runway = runway
                 aircraft.state = AircraftState.APPROACH
+                aircraft.target_speed_kt = aircraft.final_approach_speed_kt
                 clearances.append("landing")
                 cursor += 2 if cursor + 1 < len(tokens) else 1
                 continue

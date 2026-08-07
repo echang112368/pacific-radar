@@ -28,6 +28,11 @@ export const user = sqliteTable(
       .default(false)
       .notNull(),
     image: text("image"),
+    termsAccepted: integer("terms_accepted", { mode: "boolean" })
+      .default(false)
+      .notNull(),
+    termsAcceptedAt: integer("terms_accepted_at", { mode: "timestamp" }),
+    termsVersion: text("terms_version"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

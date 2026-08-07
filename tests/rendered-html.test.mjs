@@ -56,7 +56,7 @@ test("defines database-backed auth and a keyboard-accessible airport carousel", 
     readFile(new URL("../app/airports/ksmo/page.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /<AuthGate \/>/);
+  assert.match(page, /<AuthGate initialNotice=/);
   assert.match(authGate, /authClient\.useSession\(\)/);
   assert.match(authGate, /authClient\.signIn\.email/);
   assert.match(authGate, /authClient\.signUp\.email/);
@@ -99,28 +99,181 @@ test("defines database-backed auth and a keyboard-accessible airport carousel", 
   assert.match(css, /@media \(max-width: 620px\)/);
 });
 
+test("implements the complete secure account lifecycle and legal controls", async () => {
+  const [
+    authConfig,
+    authGate,
+    authClient,
+    email,
+    schema,
+    migration,
+    forgotPassword,
+    resetPassword,
+    accountSettings,
+    privacy,
+    terms,
+  ] = await Promise.all([
+    readFile(new URL("../lib/auth.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/auth-gate.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/auth-client.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/email.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0001_young_warstar.sql", import.meta.url), "utf8"),
+    readFile(new URL("../app/forgot-password/forgot-password-form.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/reset-password/reset-password-form.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/account/account-settings.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/privacy/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/terms/page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(authConfig, /requireEmailVerification: true/);
+  assert.match(authConfig, /sendVerificationEmail/);
+  assert.match(authConfig, /sendOnSignUp: true/);
+  assert.match(authConfig, /sendOnSignIn: true/);
+  assert.match(authConfig, /resetPasswordTokenExpiresIn: 30 \* 60/);
+  assert.match(authConfig, /revokeSessionsOnPasswordReset: true/);
+  assert.match(authConfig, /sendDeleteAccountVerification/);
+  assert.match(authConfig, /deleteTokenExpiresIn: 60 \* 60/);
+  assert.match(authConfig, /"\/request-password-reset"/);
+  assert.match(authConfig, /"\/send-verification-email"/);
+  assert.match(authGate, /authClient\.sendVerificationEmail/);
+  assert.match(authGate, /href="\/forgot-password"/);
+  assert.match(authGate, /href="\/terms"/);
+  assert.match(authGate, /href="\/privacy"/);
+  assert.match(authGate, /termsAccepted/);
+  assert.match(authClient, /inferAdditionalFields/);
+  assert.match(email, /https:\/\/api\.resend\.com\/emails/);
+  assert.match(email, /RESEND_API_KEY/);
+  assert.match(email, /process\.env\.NODE_ENV !== "production"/);
+  assert.match(schema, /termsAccepted/);
+  assert.match(schema, /termsAcceptedAt/);
+  assert.match(schema, /termsVersion/);
+  assert.match(migration, /terms_accepted/);
+  assert.match(forgotPassword, /authClient\.requestPasswordReset/);
+  assert.match(forgotPassword, /response is the same|If an account exists/);
+  assert.match(resetPassword, /authClient\.resetPassword/);
+  assert.match(resetPassword, /invalid or has expired/);
+  assert.match(accountSettings, /authClient\.deleteUser/);
+  assert.match(accountSettings, /password/);
+  assert.match(accountSettings, /confirmation !== "DELETE"/);
+  assert.match(privacy, /We do\s+not sell personal information/);
+  assert.match(privacy, /Retention and deletion/);
+  assert.match(privacy, /Your privacy rights/);
+  assert.match(terms, /not FAA-approved training/);
+  assert.match(terms, /Limitation of liability/);
+  assert.match(terms, /Governing law and disputes/);
+});
+
 test("uses the playable KSMO scope geometry in the airport preview", async () => {
-  const [carousel, simulator, airport, css] = await Promise.all([
+  const [carousel, simulator, airport, airports, css] = await Promise.all([
     readFile(new URL("../app/airport-carousel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/ksmo-airport.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/airports.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(simulator, /const RUNWAY = KSMO_RUNWAY/);
-  assert.match(carousel, /KSMO_RUNWAY\.ends\["03"\]\.threshold\.x/);
-  assert.match(carousel, /KSMO_RUNWAY\.ends\["21"\]\.threshold\.y/);
+  assert.match(simulator, /airportFor\(airportCode\)/);
+  assert.match(carousel, /PLAYABLE_AIRPORTS\[airport\.code as AirportCode\]/);
+  assert.match(carousel, /previewAirport\.runways\.map/);
+  assert.match(carousel, /previewAirport\.runwayEnds\[runway\.ends\[0\]\]/);
   assert.match(carousel, /viewBox="0 0 100 100"/);
   assert.match(carousel, /airport-preview-ring-three/);
   assert.match(carousel, /RADAR PREVIEW/);
   assert.match(carousel, /NOT YET AVAILABLE/);
   assert.match(airport, /designation: "03\/21"/);
-  assert.match(airport, /threshold: \{ x: 52\.2, y: 47\.9 \}/);
-  assert.match(airport, /threshold: \{ x: 49\.4, y: 50\.7 \}/);
+  assert.match(airport, /threshold: \{ x: 51\.13, y: 48\.33 \}/);
+  assert.match(airport, /threshold: \{ x: 48\.87, y: 51\.67 \}/);
+  const ksmoDefinition = airports.slice(
+    airports.indexOf("export const KSMO_AIRPORT"),
+    airports.indexOf("// Runway coordinates"),
+  );
+  assert.match(airports, /STANDARD_TERMINAL_SCOPE_RANGE_NM = 18/);
+  assert.match(
+    ksmoDefinition,
+    /scopeRangeNm: STANDARD_TERMINAL_SCOPE_RANGE_NM/,
+  );
   assert.match(css, /\.airport-preview-runway-layer/);
   assert.match(css, /\.airport-preview-runway-surface/);
   assert.match(css, /\.airport-preview-boundary/);
   assert.doesNotMatch(css, /\.airport-focus-runway/);
+});
+
+test("unlocks a researched four-runway KLAX level and aircraft mix", async () => {
+  const [carousel, route, airports, simulator, css] = await Promise.all([
+    readFile(new URL("../app/airport-carousel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/airports/klax/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/airports.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    access(new URL("../public/klax-terminal-satellite.jpg", import.meta.url)),
+  ]);
+
+  assert.match(carousel, /href: "\/airports\/klax"/);
+  assert.match(route, /<RadarSimulator airportCode="KLAX" \/>/);
+  assert.match(route, /await requireSession\(\)/);
+  assert.match(airports, /designation: "06L\/24R"/);
+  assert.match(airports, /designation: "06R\/24L"/);
+  assert.match(airports, /designation: "07L\/25R"/);
+  assert.match(airports, /designation: "07R\/25L"/);
+  assert.equal(
+    airports.match(/scopeRangeNm: STANDARD_TERMINAL_SCOPE_RANGE_NM/g)?.length,
+    3,
+  );
+  assert.match(airports, /threshold: \{ x: 43\.57, y: 46\.53 \}/);
+  assert.match(airports, /threshold: \{ x: 57\.02, y: 52\.26 \}/);
+  assert.match(airports, /westFlowArrivalRunways: \["24R", "25L"\]/);
+  assert.match(airports, /westFlowDepartureRunways: \["24L", "25R"\]/);
+  for (const type of ["A21N", "B38M", "B739", "B789", "B77W", "A359", "A388", "B763", "CRJ7", "B748"]) {
+    assert.match(simulator, new RegExp(`${type}: \\{`));
+  }
+  assert.match(simulator, /terminalSpeedKnots/);
+  assert.match(simulator, /cruiseSpeedKnots/);
+  assert.match(simulator, /function sharesPhysicalRunway/);
+  assert.match(css, /klax-terminal-satellite\.jpg/);
+});
+
+test("adds a researched eight-runway KORD extreme-traffic level", async () => {
+  const [carousel, route, airports, simulator, css] = await Promise.all([
+    readFile(new URL("../app/airport-carousel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/airports/kord/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/airports.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    access(new URL("../public/kord-terminal-satellite.jpg", import.meta.url)),
+  ]);
+
+  assert.match(carousel, /href: "\/airports\/kord"/);
+  assert.match(carousel, /code: "KORD"[\s\S]*runway: "8 runways"/);
+  assert.match(carousel, /traffic: "Very Heavy"/);
+  assert.match(carousel, /difficulty: "Extreme"/);
+  assert.match(route, /<RadarSimulator airportCode="KORD" \/>/);
+  assert.match(route, /await requireSession\(\)/);
+  for (const runway of [
+    "04L/22R",
+    "04R/22L",
+    "09C/27C",
+    "09L/27R",
+    "09R/27L",
+    "10C/28C",
+    "10L/28R",
+    "10R/28L",
+  ]) {
+    assert.match(airports, new RegExp(`designation: "${runway.replace("/", "\\/")}"`));
+  }
+  assert.match(airports, /threshold: \{ x: 45\.41, y: 37\.34 \}/);
+  assert.match(airports, /threshold: \{ x: 51\.95, y: 59\.63 \}/);
+  assert.match(
+    airports,
+    /westFlowArrivalRunways: \["27R", "27C", "27L", "28C"\]/,
+  );
+  assert.match(airports, /westFlowDepartureRunways: \["28R", "22L"\]/);
+  assert.match(airports, /airport: "KORD"[\s\S]*runwayCount: 6/);
+  for (const type of ["CRJ2", "BCS3", "A320", "B712", "B752", "A333"]) {
+    assert.match(simulator, new RegExp(`${type}: \\{`));
+  }
+  assert.match(css, /kord-terminal-satellite\.jpg/);
+  assert.match(css, /\.airport-map-kord \.runway-outline/);
 });
 
 test("offers a complete keyboard-accessible how-to-play briefing", async () => {
@@ -170,8 +323,8 @@ test("includes terminal-scope completion and handoff behavior", async () => {
     ),
   ]);
 
-  assert.match(simulator, /const EXIT_FIXES/);
-  assert.match(simulator, /Touchdown Runway \$\{next\.runway \?\? "21"\}, rolling out/);
+  assert.match(simulator, /airport\.exitFixes\.find/);
+  assert.match(simulator, /Touchdown Runway \$\{next\.runway \?\? airport\.westFlowArrivalRunways\[0\]\}, rolling out/);
   assert.match(
     simulator,
     /Incorrect handoff — left controlled airspace without reaching/,
@@ -181,6 +334,22 @@ test("includes terminal-scope completion and handoff behavior", async () => {
   assert.match(css, /ksmo-terminal-satellite\.jpg/);
   assert.match(css, /\.history-group \.history-segment/);
   assert.match(css, /\.flight-strip\.departure/);
+});
+
+test("keeps horizontal exit labels inside the radar viewport", async () => {
+  const css = await readFile(
+    new URL("../app/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    css,
+    /\.exit-marker\.edge-west\s*\{[^}]*transform:\s*translate\(0, -50%\)/s,
+  );
+  assert.match(
+    css,
+    /\.exit-marker\.edge-east\s*\{[^}]*transform:\s*translate\(-100%, -50%\)/s,
+  );
 });
 
 test("uses stabilized final speeds and a visible braking rollout", async () => {
@@ -199,13 +368,41 @@ test("uses stabilized final speeds and a visible braking rollout", async () => {
   assert.match(simulator, /const approachTravel = Math\.min\(dist, travel\)/);
   assert.match(simulator, /next\.status = "LANDING_ROLL"/);
   assert.match(simulator, /next\.landingDistanceFeet = 0/);
-  assert.match(simulator, /next\.landingDistanceFeet \/ RUNWAY\.lengthFeet/);
+  assert.match(simulator, /next\.landingDistanceFeet \/ \(physicalRunway\?\.lengthFeet \?\? 3500\)/);
   assert.match(simulator, /next\.speed <= 0\.5/);
-  assert.match(simulator, /Clear of Runway \$\{next\.runway \?\? "21"\}/);
+  assert.match(simulator, /Clear of Runway \$\{next\.runway \?\? airport\.westFlowArrivalRunways\[0\]\}/);
   assert.doesNotMatch(
     simulator,
     /next\.status = "LANDED";\s*next\.altitude = 177;\s*next\.targetAltitude = 177;\s*next\.speed = 0/s,
   );
+});
+
+test("rejects speed commands below every aircraft maneuver minimum", async () => {
+  const simulator = await readFile(
+    new URL("../app/simulator.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(
+    simulator.match(/minimumManeuverSpeedKnots:\s*\d+/g)?.length,
+    24,
+  );
+  assert.match(
+    simulator,
+    /C172:\s*\{[^}]*minimumManeuverSpeedKnots:\s*80/s,
+  );
+  assert.match(
+    simulator,
+    /B738:\s*\{[^}]*minimumManeuverSpeedKnots:\s*170/s,
+  );
+  assert.match(
+    simulator,
+    /B748:\s*\{[^}]*minimumManeuverSpeedKnots:\s*180/s,
+  );
+  assert.match(simulator, /if \(speed < minimumSpeed\)/);
+  assert.match(simulator, /normal-flight minimum is \$\{minimumSpeed\} knots/);
+  assert.match(simulator, /flight\.targetSpeed = speed/);
+  assert.doesNotMatch(simulator, /clamp\(\s*speed,\s*60/s);
 });
 
 test("uses timestamped ground-track history with a fading fixed-time trail", async () => {
@@ -235,7 +432,8 @@ test("maps displayed ground speed linearly to real-time screen movement", async 
     "utf8",
   );
 
-  assert.match(simulator, /SCOPE_NM_PER_WORLD_UNIT = 0\.35/);
+  assert.match(simulator, /function scopeNmPerWorldUnit/);
+  assert.match(simulator, /airportFor\(airportCode\)\.scopeRangeNm \/ 100/);
   assert.match(
     simulator,
     /elapsedHoursPerTick = 1 \/ SIMULATION_TICKS_PER_SECOND \/ 3600/,
@@ -246,7 +444,7 @@ test("maps displayed ground speed linearly to real-time screen movement", async 
   );
   assert.match(simulator, /airborneAccelerationKnotsPerSecond/);
   assert.match(simulator, /function groundTravelForKnots/);
-  assert.match(simulator, /groundTravelForKnots\(next\.speed\)/);
+  assert.match(simulator, /groundTravelForKnots\(next\.speed, next\.airport\)/);
   assert.match(simulator, /groundSpeed = \(distanceNm \* 3600\) \/ elapsedSeconds/);
   assert.match(
     simulator,
@@ -254,11 +452,11 @@ test("maps displayed ground speed linearly to real-time screen movement", async 
   );
   assert.match(
     simulator,
-    /function groundTravelForKnots\(speedKnots: number\)/,
+    /function groundTravelForKnots\(speedKnots: number, airportCode: AirportCode\)/,
   );
   assert.match(
     simulator,
-    /return nauticalMilesPerTick \/ SCOPE_NM_PER_WORLD_UNIT/,
+    /return worldUnitsForNauticalMiles\(nauticalMilesPerTick, airportCode\)/,
   );
   assert.match(simulator, /next\.groundSpeed = instantaneousMotion\.groundSpeed/);
   assert.doesNotMatch(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE/);
@@ -606,27 +804,31 @@ test("confirms before the simulator header returns to airport selection", async 
   assert.match(css, /\.finish-confirm-button/);
 });
 
-test("aligns departures to KSMO Runway 03/21 and uses the full runway before vectoring", async () => {
-  const [simulator, airport, css] = await Promise.all([
+test("aligns departures to their assigned physical runway and uses its full length before vectoring", async () => {
+  const [simulator, airport, airports, css] = await Promise.all([
     readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/ksmo-airport.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/airports.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(simulator, /type RunwayEnd = "03" \| "21"/);
-  assert.match(simulator, /const RUNWAY = KSMO_RUNWAY/);
+  assert.match(simulator, /runway\?: string/);
+  assert.match(simulator, /function runwayEndFor/);
   assert.match(airport, /designation:\s*"03\/21"/);
   assert.match(airport, /"21":\s*\{[^}]*heading:\s*210/s);
   assert.match(airport, /"03":\s*\{[^}]*heading:\s*30/s);
-  assert.match(simulator, /runway:\s*"03"/);
-  assert.match(simulator, /const travel = groundTravelForKnots\(next\.speed\)/);
+  assert.match(airports, /runway: "03"/);
+  assert.match(
+    simulator,
+    /const travel = groundTravelForKnots\(next\.speed, next\.airport\)/,
+  );
   assert.doesNotMatch(simulator, /TAKEOFF_ROLL_MOVEMENT_SCALE/);
   assert.match(simulator, /function hasPassedRunwayDepartureEnd/);
   assert.match(simulator, /return runwayProgress >= 1/);
   assert.match(simulator, /const clearOfRunway = hasPassedRunwayDepartureEnd\(next\)/);
   assert.match(
     simulator,
-    /next\.altitude >=\s*RUNWAY\.elevation \+ INITIAL_TURN_MINIMUM_AGL_FEET/s,
+    /next\.altitude >=\s*airport\.elevation \+ INITIAL_TURN_MINIMUM_AGL_FEET/s,
   );
   assert.match(simulator, /next\.speed >= minimumTurnSpeed/);
   assert.match(
@@ -641,7 +843,7 @@ test("aligns departures to KSMO Runway 03/21 and uses the full runway before vec
   assert.doesNotMatch(simulator, /next\.speed >= 72 \|\| dist < 2/);
   assert.match(simulator, /className="runway-layer"/);
   assert.match(simulator, /normalizeRunwayEnd/);
-  assert.match(simulator, /Unknown runway \$\{runwayToken\}; use 03 or 21/);
+  assert.match(simulator, /Unknown runway \$\{runwayToken\}; use \$\{Object\.keys\(airport\.runwayEnds\)\.join/);
   assert.doesNotMatch(simulator, /ACTIVE END/);
   assert.doesNotMatch(simulator, /RECIPROCAL/);
   assert.match(css, /\.runway-layer/);
@@ -694,7 +896,7 @@ test("stages lineup, takeoff power, and progressive runway acceleration", async 
     /next\.speed = moveToward\(\s*next\.speed,\s*performance\.rotationSpeed,\s*takeoffAccelerationKnotsPerSecond\(next\)/s,
   );
   assert.match(simulator, /next\.targetSpeed = performance\.initialClimbSpeed/);
-  assert.match(simulator, /next\.targetAltitude = Math\.max\(next\.targetAltitude, 2500\)/);
+  assert.match(simulator, /next\.targetAltitude = Math\.max\(\s*next\.targetAltitude,\s*airport\.elevation \+ 2500/s);
   assert.doesNotMatch(simulator, /TAKEOFF_ACCELERATION_PER_TICK|targetSpeed = 78/);
   assert.doesNotMatch(simulator, /flight\.status = "TAKEOFF_ROLL"/);
   assert.match(simulator, /line up and wait/i);
@@ -737,13 +939,13 @@ test("pause is a planning state with compact, boxless traffic displays", async (
 });
 
 test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async () => {
-  const simulator = await readFile(
-    new URL("../app/simulator.tsx", import.meta.url),
-    "utf8",
-  );
+  const [simulator, airports] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/airports.ts", import.meta.url), "utf8"),
+  ]);
 
   assert.match(simulator, /aircraft:\s*\[\]/);
-  assert.match(simulator, /x:\s*0\.6/);
+  assert.match(airports, /x:\s*0\.6/);
   assert.match(simulator, /status:\s*"HOLD_SHORT"/);
   assert.doesNotMatch(simulator, /const SPAWN_SCHEDULE/);
   assert.match(simulator, /FIRST_TRAFFIC_MIN_SECONDS = 6/);
@@ -777,28 +979,23 @@ test("uses ATC-SIM shorthand and boundary-based traffic lifecycle rules", async 
   assert.match(simulator, /setCommand\(`\$\{flight\.callsign\} `\)/);
 });
 
-test("scales balanced traffic to KSMO's single-runway capacity", async () => {
-  const simulator = await readFile(
-    new URL("../app/simulator.tsx", import.meta.url),
-    "utf8",
-  );
+test("scales balanced traffic to each airport's runway capacity", async () => {
+  const [simulator, airports] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/airports.ts", import.meta.url), "utf8"),
+  ]);
 
-  assert.match(simulator, /type AirportTrafficProfile/);
-  assert.match(simulator, /function trafficSpacingForRunways/);
-  assert.match(simulator, /airport:\s*"KSMO"/);
-  assert.match(simulator, /runwayCount:\s*1/);
-  assert.match(simulator, /initialSpacingSeconds:\s*Math\.round\(60 \/ capacityScale\)/);
-  assert.match(simulator, /minimumSpacingSeconds:\s*Math\.round\(36 \/ capacityScale\)/);
+  assert.match(airports, /export type AirportTrafficProfile/);
+  assert.match(airports, /airport: "KSMO"/);
+  assert.match(airports, /runwayCount: 1/);
+  assert.match(airports, /initialSpacingSeconds: 60/);
+  assert.match(airports, /minimumSpacingSeconds: 36/);
+  assert.match(airports, /airport: "KLAX"/);
+  assert.match(airports, /runwayCount: 4/);
+  assert.match(airports, /initialSpacingSeconds: 30/);
+  assert.match(airports, /minimumSpacingSeconds: 22/);
   assert.match(simulator, /TRAFFIC_INTERVAL_JITTER = 0\.38/);
   assert.match(simulator, /ABSOLUTE_MIN_TRAFFIC_SPACING_SECONDS = 24/);
-  assert.match(
-    simulator,
-    /INITIAL_TRAFFIC_INTERVAL_TICKS =\s*SMO_TRAFFIC_PROFILE\.initialSpacingSeconds \*\s*SIMULATION_TICKS_PER_SECOND/,
-  );
-  assert.match(
-    simulator,
-    /MINIMUM_TRAFFIC_INTERVAL_TICKS =\s*SMO_TRAFFIC_PROFILE\.minimumSpacingSeconds \*\s*SIMULATION_TICKS_PER_SECOND/,
-  );
   assert.match(simulator, /function continuousTrafficIntervalTicks/);
   assert.match(simulator, /function trafficRandomUnit/);
   assert.match(simulator, /window\.crypto\.getRandomValues/);
@@ -809,11 +1006,11 @@ test("scales balanced traffic to KSMO's single-runway capacity", async () => {
   );
   assert.match(
     simulator,
-    /sequence \/ SMO_TRAFFIC_PROFILE\.rampEveryMovements/,
+    /sequence \/ airport\.traffic\.rampEveryMovements/,
   );
   assert.match(
     simulator,
-    /SMO_TRAFFIC_PROFILE\.spacingReductionSeconds/,
+    /airport\.traffic\.spacingReductionSeconds/,
   );
   assert.match(simulator, /function createContinuousTraffic/);
   assert.match(
@@ -905,4 +1102,153 @@ test("uses a bare command input without selection or suggested clearances", asyn
   assert.doesNotMatch(simulator, /press Enter/);
   assert.doesNotMatch(css, /\.selection-summary/);
   assert.doesNotMatch(css, /\.quick-commands/);
+});
+
+test("offers KSMO ground control as a researched separate game mode", async () => {
+  const [carousel, route, ground, data, css, research] = await Promise.all([
+    readFile(new URL("../app/airport-carousel.tsx", import.meta.url), "utf8"),
+    readFile(
+      new URL("../app/airports/ksmo/ground/page.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/ground-simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ksmo-ground.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../docs/ksmo-ground-research.md", import.meta.url), "utf8"),
+    access(new URL("../public/ksmo-satellite.jpg", import.meta.url)),
+  ]);
+
+  assert.match(carousel, /SELECT POSITION/);
+  assert.match(carousel, /Air Traffic Control/);
+  assert.match(carousel, /Ground Control/);
+  assert.match(carousel, /selectedMode/);
+  assert.match(carousel, /"\/airports\/ksmo\/ground"/);
+  assert.match(route, /await requireSession\(\)/);
+  assert.match(route, /<GroundSimulator \/>/);
+  assert.match(ground, /NEXT TOWER ARRIVAL/);
+  assert.match(ground, /Tower lands arrivals automatically/);
+  assert.match(ground, /removes it from the map/i);
+  assert.match(ground, /off scope/);
+  assert.match(data, /designation: "03\/21"/);
+  assert.match(data, /lengthFeet: 3500/);
+  assert.match(data, /widthFeet: 150/);
+  assert.match(data, /runUpAreas: \["A2", "A5", "B2", "B5"\]/);
+  assert.match(data, /airlineGates: 0/);
+  assert.match(data, /jsxApronPositions: 2/);
+  assert.match(data, /AT46:/);
+  assert.match(data, /allowedParking: \["JSX"\]/);
+  assert.match(data, /function projectKsmoGroundPoint/);
+  assert.match(data, /return \{ x: point\.x, y: point\.y \}/);
+  assert.match(data, /threshold03: projectKsmoGroundPoint/);
+  assert.match(ground, /Interactive simulated airport surface display/);
+  assert.match(ground, /SIMULATED AIRPORT SURFACE DISPLAY/);
+  assert.match(ground, /ground-chart-layer/);
+  assert.match(ground, /ground-taxiway-pavement/);
+  assert.match(ground, /ground-building-shape/);
+  assert.match(ground, /occupiedCurrentStand/);
+  assert.doesNotMatch(css, /ksmo-ground-north-up\.jpg/);
+  assert.match(css, /\.ground-chart-layer/);
+  assert.match(css, /\.ground-airport-boundary/);
+  assert.match(css, /\.ground-frame\s*\{[^}]*container-type:\s*size/s);
+  assert.match(css, /\.ground-map\s*\{[^}]*aspect-ratio:\s*10 \/ 7/s);
+  assert.match(css, /\.ground-surface-layer/);
+  assert.match(ground, /KSMO_GROUND_CHART/);
+  assert.match(ground, /preserveAspectRatio="xMidYMid meet"/);
+  assert.match(ground, /KSMO_RUNWAY_CONNECTORS/);
+  assert.match(ground, /ground-intersection-pavement/);
+  assert.match(css, /\.ground-taxiway-pavement\s*\{[^}]*stroke-width:\s*2\.2px/s);
+  assert.match(research, /FAA Airport Diagram 26134/);
+});
+
+test("models complete ground commands, timing, and runway protection", async () => {
+  const [ground, data] = await Promise.all([
+    readFile(new URL("../app/ground-simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ksmo-ground.ts", import.meta.url), "utf8"),
+  ]);
+
+  for (const command of [
+    "N172SM START",
+    "N172SM TAXI RWY 21 VIA A",
+    "N172SM RUNUP",
+    "N172SM HOLD",
+    "N172SM CONTINUE",
+    "N172SM LINEUP RWY 21",
+    "N172SM TAKEOFF RWY 21",
+    "N520SM TAXI FBO1 VIA B",
+    "N520SM TAXI TR3",
+    "JSX501 TAXI JSX2",
+  ]) {
+    assert.match(ground, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.match(ground, /ARRIVAL_RUNWAY_BUFFER_SECONDS = 30/);
+  assert.match(ground, /runwayOccupied\(world\)/);
+  assert.match(ground, /sent around by Tower because Runway 21 was occupied/);
+  assert.match(ground, /PARKING_POINTS = 100/);
+  assert.match(ground, /DEPARTURE_POINTS = 125/);
+  assert.match(ground, /simulationSpeed/);
+  assert.match(data, /taxiKnots: 12/);
+  assert.match(data, /taxiKnots: 15/);
+  assert.match(data, /rampKnots: 5/);
+  assert.match(data, /engineStartSeconds: 60/);
+  assert.match(data, /function shortestGroundRoute/);
+  assert.match(data, /\["W03N", "W03W"\]/);
+  assert.match(data, /\["E21N", "E21E"\]/);
+  assert.match(data, /FBOE:/);
+  assert.match(data, /TRE:/);
+  assert.match(data, /SH1:/);
+  assert.match(ground, /ground-runway-exit/);
+  assert.match(ground, /ground-parking-label/);
+  assert.match(ground, /ground-parking-selector/);
+  assert.match(ground, /plannedExit/);
+  assert.match(ground, /plannedStandId/);
+  assert.match(ground, /PARK/);
+  assert.match(ground, /LAND \/ EXIT/);
+  assert.match(ground, /function nextRoutingNode/);
+  assert.match(ground, /function applyRunwayQueues/);
+  assert.match(ground, /RUNWAY_QUEUE_SPACING_PERCENT/);
+  assert.match(ground, /number \$\{aircraftAhead\.length \+ 1\} in sequence/);
+  assert.doesNotMatch(ground, /ground-selected-route/);
+  assert.doesNotMatch(ground, /ground-closed-marking/);
+});
+
+test("offers a researched KLAX ground map with paired-runway operations", async () => {
+  const [carousel, route, ground, data, css, research] = await Promise.all([
+    readFile(new URL("../app/airport-carousel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/airports/klax/ground/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/lax-ground-simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/klax-ground.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../docs/klax-ground-research.md", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(carousel, /"\/airports\/klax\/ground"/);
+  assert.match(route, /await requireSession\(\)/);
+  assert.match(route, /<LaxGroundSimulator \/>/);
+  assert.match(ground, /NEXT TOWER ARRIVAL/);
+  assert.match(ground, /24R \/ 25L/);
+  assert.match(ground, /24L \/ 25R/);
+  assert.match(ground, /Terminal 5 is not assignable/);
+  assert.match(ground, /ARRIVAL_RUNWAY_BUFFER_SECONDS = 35/);
+  assert.match(ground, /ARRIVAL_GATE_SERVICE_SECONDS = 45/);
+  assert.match(ground, /runwayPairOccupied/);
+  assert.match(ground, /off scope/);
+  assert.match(data, /lengthFeet: 8926/);
+  assert.match(data, /lengthFeet: 10885/);
+  assert.match(data, /lengthFeet: 12923/);
+  assert.match(data, /lengthFeet: 11095/);
+  assert.match(data, /northGroundFrequency: "121.650"/);
+  assert.match(data, /southGroundFrequency: "121.750"/);
+  assert.match(data, /G202:/);
+  assert.match(data, /G86:/);
+  assert.match(ground, /Interactive simulated airport surface display/);
+  assert.match(ground, /SIMULATED AIRPORT SURFACE DISPLAY/);
+  assert.match(ground, /LAX_TERMINAL_BUILDINGS/);
+  assert.doesNotMatch(css, /klax-ground-headon\.jpg/);
+  assert.match(css, /\.lax-ground-map/);
+  assert.match(ground, /KLAX_GROUND_CHART/);
+  assert.match(ground, /preserveAspectRatio="xMidYMid meet"/);
+  assert.match(ground, /ground-intersection-pavement/);
+  assert.doesNotMatch(ground, /ground-selected-route/);
+  assert.match(research, /FAA Airport Diagram 26190/);
+  assert.match(research, /Terminal 5 is currently closed/);
 });

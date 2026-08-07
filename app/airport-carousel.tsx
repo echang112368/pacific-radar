@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
-import { KSMO_RUNWAY } from "../lib/ksmo-airport";
+import {
+  AIRPORTS as PLAYABLE_AIRPORTS,
+  type AirportCode,
+} from "../lib/airports";
 
 const AIRPORTS = [
   {
@@ -32,7 +35,18 @@ const AIRPORTS = [
     runway: "4 runways",
     traffic: "Heavy",
     difficulty: "Expert",
-    status: "LOCKED",
+    status: "AVAILABLE",
+    href: "/airports/klax",
+  },
+  {
+    code: "KORD",
+    name: "Chicago O'Hare International",
+    location: "Chicago, Illinois",
+    runway: "8 runways",
+    traffic: "Very Heavy",
+    difficulty: "Extreme",
+    status: "AVAILABLE",
+    href: "/airports/kord",
   },
 ] as const;
 
@@ -91,11 +105,30 @@ type AirportCarouselProps = {
   displayName: string;
 };
 
+type GameMode = "atc" | "ground";
+
 export function AirportCarousel({ displayName }: AirportCarouselProps) {
+  const [selectedMode, setSelectedMode] = useState<GameMode | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const airport = AIRPORTS[selectedIndex];
-  const href = "href" in airport ? airport.href : null;
+  const towerHref = "href" in airport ? airport.href : null;
+  const href =
+    selectedMode === "ground"
+      ? airport.code === "KSMO"
+        ? "/airports/ksmo/ground"
+        : airport.code === "KLAX"
+          ? "/airports/klax/ground"
+        : null
+      : towerHref;
+  const displayStatus =
+    selectedMode === "ground" && !["KSMO", "KLAX"].includes(airport.code)
+      ? "GROUND LOCKED"
+      : airport.status;
+  const previewAirport =
+    airport.code === "KSNA"
+      ? null
+      : PLAYABLE_AIRPORTS[airport.code as AirportCode];
 
   const moveSelection = useCallback((direction: -1 | 1) => {
     setSelectedIndex((current) => {
@@ -112,6 +145,91 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [showHowToPlay]);
+
+  if (selectedMode === null) {
+    return (
+      <main className="airport-select-screen role-select-screen airport-ksmo">
+        <div className="airport-select-background" aria-hidden="true" />
+        <header className="airport-select-header">
+          <div className="login-brand">
+            <span aria-hidden="true">PR</span>
+            <strong>PACIFIC RADAR</strong>
+          </div>
+          <nav aria-label="Player controls">
+            <span>{displayName}</span>
+            <Link className="account-link" href="/account">Account</Link>
+            <button
+              onClick={async () => {
+                await authClient.signOut();
+                window.location.href = "/";
+              }}
+              type="button"
+            >
+              Log out
+            </button>
+          </nav>
+        </header>
+
+        <section className="role-select" aria-labelledby="role-select-title">
+          <p className="airport-carousel-label">SELECT POSITION</p>
+          <h1 id="role-select-title">Choose your control room</h1>
+          <p className="role-select-intro">
+            Work the airspace from the tower scope, or manage every movement on
+            the airport surface.
+          </p>
+          <div className="role-card-grid">
+            <button
+              className="role-card role-card-atc"
+              onClick={() => setSelectedMode("atc")}
+              type="button"
+            >
+              <span className="role-card-visual role-radar-visual" aria-hidden="true">
+                <i /><i /><i />
+                <b>✦</b>
+              </span>
+              <span className="role-card-copy">
+                <small>RADAR · TOWER</small>
+                <strong>Air Traffic Control</strong>
+                <em>Vector arrivals, clear landings, launch departures, and hand aircraft to the next sector.</em>
+              </span>
+              <span className="role-card-action">Select ATC <b aria-hidden="true">→</b></span>
+            </button>
+
+            <button
+              className="role-card role-card-ground"
+              onClick={() => {
+                setSelectedIndex(0);
+                setSelectedMode("ground");
+              }}
+              type="button"
+            >
+              <span className="role-card-visual role-ground-visual" aria-hidden="true">
+                <i className="role-runway" />
+                <i className="role-taxiway role-taxiway-a" />
+                <i className="role-taxiway role-taxiway-b" />
+                <b>✈</b>
+              </span>
+              <span className="role-card-copy">
+                <small>SURFACE · 121.9</small>
+                <strong>Ground Control</strong>
+                <em>Route aircraft between parking and active runways, protect arrivals, and release safe takeoffs.</em>
+              </span>
+              <span className="role-card-action">Select Ground <b aria-hidden="true">→</b></span>
+            </button>
+          </div>
+          <p className="role-availability">Ground Control is available at KSMO · Santa Monica and KLAX · Los Angeles International</p>
+        </section>
+        <footer className="airport-select-footer">
+          <span>Entertainment simulation · Not for operational use</span>
+          <nav aria-label="Legal">
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
+          </nav>
+          <span>Account protected</span>
+        </footer>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -132,6 +250,13 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
         </div>
         <nav aria-label="Game and player controls">
           <button
+            className="mode-change-trigger"
+            onClick={() => setSelectedMode(null)}
+            type="button"
+          >
+            {selectedMode === "atc" ? "ATC" : "Ground"} · Change
+          </button>
+          <button
             className="how-to-play-trigger"
             onClick={() => setShowHowToPlay(true)}
             type="button"
@@ -140,6 +265,7 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
             How to play
           </button>
           <span>{displayName}</span>
+          <Link className="account-link" href="/account">Account</Link>
           <button
             onClick={async () => {
               await authClient.signOut();
@@ -153,7 +279,9 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
       </header>
 
       <section className="airport-carousel" aria-labelledby="airport-title">
-        <p className="airport-carousel-label">SELECT AIRPORT</p>
+        <p className="airport-carousel-label">
+          SELECT AIRPORT · {selectedMode === "atc" ? "AIR TRAFFIC CONTROL" : "GROUND CONTROL"}
+        </p>
 
         <div className="airport-carousel-stage">
           <button
@@ -167,8 +295,8 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
 
           <article className="airport-focus-card">
             <div className="airport-focus-image">
-              <span className="airport-focus-status">{airport.status}</span>
-              {airport.code === "KSMO" ? (
+              <span className="airport-focus-status">{displayStatus}</span>
+              {previewAirport ? (
                 <div className="airport-preview-scope" aria-hidden="true">
                   <span className="airport-preview-boundary" />
                   <span className="airport-preview-ring airport-preview-ring-one" />
@@ -179,42 +307,44 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
                     preserveAspectRatio="none"
                     viewBox="0 0 100 100"
                   >
-                    <line
-                      className="airport-preview-runway-outline"
-                      x1={KSMO_RUNWAY.ends["03"].threshold.x}
-                      x2={KSMO_RUNWAY.ends["21"].threshold.x}
-                      y1={KSMO_RUNWAY.ends["03"].threshold.y}
-                      y2={KSMO_RUNWAY.ends["21"].threshold.y}
-                    />
-                    <line
-                      className="airport-preview-runway-surface"
-                      x1={KSMO_RUNWAY.ends["03"].threshold.x}
-                      x2={KSMO_RUNWAY.ends["21"].threshold.x}
-                      y1={KSMO_RUNWAY.ends["03"].threshold.y}
-                      y2={KSMO_RUNWAY.ends["21"].threshold.y}
-                    />
+                    {previewAirport.runways.map((runway) => {
+                      const first = previewAirport.runwayEnds[runway.ends[0]];
+                      const second = previewAirport.runwayEnds[runway.ends[1]];
+                      return (
+                      <g key={runway.designation}>
+                        <line
+                          className="airport-preview-runway-outline"
+                          x1={first.threshold.x}
+                          x2={second.threshold.x}
+                          y1={first.threshold.y}
+                          y2={second.threshold.y}
+                        />
+                        <line
+                          className="airport-preview-runway-surface"
+                          x1={first.threshold.x}
+                          x2={second.threshold.x}
+                          y1={first.threshold.y}
+                          y2={second.threshold.y}
+                        />
+                      </g>
+                      );
+                    })}
                   </svg>
-                  <span
-                    className="airport-preview-runway-label airport-preview-runway-21"
-                    style={{
-                      left: `${KSMO_RUNWAY.ends["21"].threshold.x}%`,
-                      top: `${KSMO_RUNWAY.ends["21"].threshold.y}%`,
-                    }}
-                  >
-                    21
-                  </span>
-                  <span
-                    className="airport-preview-runway-label airport-preview-runway-03"
-                    style={{
-                      left: `${KSMO_RUNWAY.ends["03"].threshold.x}%`,
-                      top: `${KSMO_RUNWAY.ends["03"].threshold.y}%`,
-                    }}
-                  >
-                    03
-                  </span>
+                  {Object.values(previewAirport.runwayEnds).map((runwayEnd) => (
+                    <span
+                      className={`airport-preview-runway-label airport-preview-runway-${runwayEnd.id.toLowerCase()}`}
+                      key={runwayEnd.id}
+                      style={{
+                        left: `${runwayEnd.threshold.x}%`,
+                        top: `${runwayEnd.threshold.y}%`,
+                      }}
+                    >
+                      {runwayEnd.id}
+                    </span>
+                  ))}
                   <span className="airport-preview-marker">
                     <i />
-                    SMO
+                    {airport.code.slice(1)}
                   </span>
                 </div>
               ) : (
@@ -247,7 +377,7 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
 
               {href ? (
                 <Link className="airport-play-button" href={href}>
-                  Play
+                  Play {selectedMode === "ground" ? "Ground" : "ATC"}
                   <span aria-hidden="true">→</span>
                 </Link>
               ) : (
@@ -285,6 +415,10 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
 
       <footer className="airport-select-footer">
         <span>Use ← → to change airport</span>
+        <nav aria-label="Legal">
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+        </nav>
         <span>{selectedIndex + 1} / {AIRPORTS.length}</span>
       </footer>
 
