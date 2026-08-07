@@ -163,6 +163,26 @@ test("hardens browser, request, input, password, and dependency boundaries", asy
   assert.match(privacy, /first five characters of its\s+SHA-1 hash/);
 });
 
+test("keeps the account footer at the viewport edge while legal content scrolls", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  const accountFlowStyles = css.slice(
+    css.indexOf(".account-flow-page"),
+    css.indexOf(".account-flow-background"),
+  );
+  const accountContentStyles = css.slice(
+    css.indexOf(".account-flow-content {"),
+    css.indexOf(".account-flow-content.is-wide"),
+  );
+
+  assert.match(accountFlowStyles, /height: 100dvh/);
+  assert.match(accountFlowStyles, /grid-template-rows: 66px minmax\(0, 1fr\) 40px/);
+  assert.match(accountFlowStyles, /overflow: hidden/);
+  assert.match(accountContentStyles, /height: 100%/);
+  assert.match(accountContentStyles, /overflow-y: auto/);
+  assert.match(accountContentStyles, /padding: 52px 0/);
+});
+
 test("implements the complete secure account lifecycle and legal controls", async () => {
   const [
     authConfig,
