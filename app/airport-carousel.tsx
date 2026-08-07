@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import {
@@ -108,6 +109,7 @@ type AirportCarouselProps = {
 type GameMode = "atc" | "ground";
 
 export function AirportCarousel({ displayName }: AirportCarouselProps) {
+  const router = useRouter();
   const [selectedMode, setSelectedMode] = useState<GameMode | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
@@ -129,6 +131,12 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
     airport.code === "KSNA"
       ? null
       : PLAYABLE_AIRPORTS[airport.code as AirportCode];
+
+  const handleLogout = async () => {
+    await authClient.signOut();
+    router.replace("/");
+    router.refresh();
+  };
 
   const moveSelection = useCallback((direction: -1 | 1) => {
     setSelectedIndex((current) => {
@@ -159,10 +167,7 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
             <span>{displayName}</span>
             <Link className="account-link" href="/account">Account</Link>
             <button
-              onClick={async () => {
-                await authClient.signOut();
-                window.location.href = "/";
-              }}
+              onClick={handleLogout}
               type="button"
             >
               Log out
@@ -267,10 +272,7 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
           <span>{displayName}</span>
           <Link className="account-link" href="/account">Account</Link>
           <button
-            onClick={async () => {
-              await authClient.signOut();
-              window.location.href = "/";
-            }}
+            onClick={handleLogout}
             type="button"
           >
             Log out

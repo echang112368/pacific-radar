@@ -7,14 +7,31 @@ import { AirportCarousel } from "./airport-carousel";
 import { LegalFooter } from "./legal-footer";
 
 type AuthMode = "sign-in" | "sign-up";
+const MINIMUM_NEW_PASSWORD_LENGTH = 15;
+
+function normalizeControllerName(value: string) {
+  const normalized = value.normalize("NFKC").trim().replace(/\s+/gu, " ");
+  if (
+    normalized.length < 2 ||
+    normalized.length > 80 ||
+    !/[\p{L}\p{N}]/u.test(normalized) ||
+    !/^[\p{L}\p{M}\p{N} .,'’_-]+$/u.test(normalized)
+  ) {
+    return null;
+  }
+  return normalized;
+}
 
 function readableAuthError(message?: string) {
   if (!message) return "We could not complete that request. Please try again.";
+  if (/compromised|breach data/i.test(message)) {
+    return "That password appears in known breach data. Choose a unique passphrase.";
+  }
+  if (/password.*short|at least 15/i.test(message)) {
+    return "Use a password or passphrase of at least 15 characters.";
+  }
   if (/invalid email or password/i.test(message)) {
     return "The email or password is incorrect.";
-  }
-  if (/already exists|already registered/i.test(message)) {
-    return "An account already exists for that email.";
   }
   if (/email.*not.*verified|not.*verified/i.test(message)) {
     return "Verify your email before signing in. We sent a fresh verification link.";
@@ -22,7 +39,7 @@ function readableAuthError(message?: string) {
   if (/too many requests|rate limit/i.test(message)) {
     return "Too many attempts. Please wait a few minutes and try again.";
   }
-  return message;
+  return "We could not complete that request. Check your details and try again.";
 }
 
 type AuthGateProps = {
@@ -61,7 +78,7 @@ export function AuthGate({ initialNotice = null }: AuthGateProps) {
     setError(null);
     try {
       const result = await authClient.sendVerificationEmail({
-        email,
+        email: email.trim().toLowerCase(),
         callbackURL: "/?verified=true",
       });
       if (result.error) {
@@ -87,16 +104,29 @@ export function AuthGate({ initialNotice = null }: AuthGateProps) {
       return;
     }
 
+    const normalizedName = mode === "sign-up" ? normalizeControllerName(name) : null;
+    if (mode === "sign-up" && !normalizedName) {
+      setError(
+        "Use a 2–80 character controller name with letters, numbers, spaces, apostrophes, periods, underscores, or hyphens.",
+      );
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
+    const normalizedEmail = email.trim().toLowerCase();
 
     try {
       const result =
         mode === "sign-in"
-          ? await authClient.signIn.email({ email, password, rememberMe })
+          ? await authClient.signIn.email({
+              email: normalizedEmail,
+              password,
+              rememberMe,
+            })
           : await authClient.signUp.email({
-              name: name.trim(),
-              email,
+              name: normalizedName!,
+              email: normalizedEmail,
               password,
               callbackURL: "/?verified=true",
               termsAccepted,
@@ -204,6 +234,7 @@ export function AuthGate({ initialNotice = null }: AuthGateProps) {
                 disabled={submitting || isPending}
                 id="email"
                 inputMode="email"
+                maxLength={254}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="controller@example.com"
                 required
@@ -219,9 +250,9 @@ export function AuthGate({ initialNotice = null }: AuthGateProps) {
                 autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
                 disabled={submitting || isPending}
                 maxLength={128}
-                minLength={10}
+                minLength={mode === "sign-in" ? 1 : MINIMUM_NEW_PASSWORD_LENGTH}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder={mode === "sign-up" ? "At least 10 characters" : "Enter your password"}
+                placeholder={mode === "sign-up" ? "At least 15 characters" : "Enter your password"}
                 required
                 type="password"
                 value={password}
@@ -236,7 +267,7 @@ export function AuthGate({ initialNotice = null }: AuthGateProps) {
                     autoComplete="new-password"
                     disabled={submitting || isPending}
                     maxLength={128}
-                    minLength={10}
+                    minLength={MINIMUM_NEW_PASSWORD_LENGTH}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     required
                     type="password"

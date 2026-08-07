@@ -23,6 +23,10 @@ import {
   laxNodesForGateGroup,
   shortestLaxGroundRoute,
 } from "../lib/klax-ground";
+import {
+  MAX_SIMULATOR_COMMAND_LENGTH,
+  sanitizeSimulatorCommand,
+} from "../lib/user-input";
 
 type Status =
   | "PARKED"
@@ -697,7 +701,7 @@ export function LaxGroundSimulator() {
 
   const transmit = (event: FormEvent) => {
     event.preventDefault();
-    const value = command.trim();
+    const value = sanitizeSimulatorCommand(command).trim();
     if (!value) return;
     const global = value.toUpperCase();
     if (global === "HELP") setShowHelp(true);
@@ -782,7 +786,7 @@ export function LaxGroundSimulator() {
 
         <aside className="side-panel ground-side-panel">
           <section className="panel-section radio-section"><div className="section-heading"><div><p className="eyebrow">LAX GROUND · 121.65 / 121.75</p><h2>Radio log</h2></div><span className="live-indicator">LIVE</span></div><div className="event-log" aria-live="polite">{world.events.slice(-2).reverse().map((item, index) => <div className={`event-row ${item.tone}`} key={`${item.tick}-${index}`}><span>{formatCountdown(item.tick / TICKS_PER_SECOND)}</span><p>{item.message}</p></div>)}</div></section>
-          <section className="command-deck" aria-label="LAX Ground clearance console"><form className="command-form" onSubmit={transmit}><div className="command-input-wrap"><span className="prompt-symbol">›</span><input ref={inputRef} aria-label="Ground control command" autoComplete="off" spellCheck={false} value={command} onChange={(event) => setCommand(event.target.value)} /><button type="submit">Send</button></div></form></section>
+          <section className="command-deck" aria-label="LAX Ground clearance console"><form className="command-form" onSubmit={transmit}><div className="command-input-wrap"><span className="prompt-symbol">›</span><input ref={inputRef} aria-label="Ground control command" autoComplete="off" maxLength={MAX_SIMULATOR_COMMAND_LENGTH} spellCheck={false} value={command} onChange={(event) => setCommand(sanitizeSimulatorCommand(event.target.value))} /><button type="submit">Send</button></div></form></section>
           <section className="score-card ground-score-card"><div className="score-total"><span>SCORE</span><strong>{world.score.toLocaleString()}</strong></div><div className="score-metrics"><span><strong>{world.parkedArrivals}</strong> parked</span><span><strong>{world.safeDepartures}</strong> departed</span><span><strong>{world.safetyStrikes}/3</strong> strikes</span></div></section>
           <section className="panel-section strips-section"><div className="section-heading"><div><p className="eyebrow">YOUR MOVEMENT AREA</p><h2>Ground traffic</h2></div><span>{visibleFlights.length} active</span></div><div className="strip-stack ground-strip-stack">{visibleFlights.map((flight) => <button className={`flight-strip ground-flight-strip ${flight.kind} ${selected === flight.callsign ? "selected" : ""}`} key={flight.callsign} onClick={() => { setSelected(flight.callsign); setCommand(`${flight.callsign} `); inputRef.current?.focus(); }}><span className="strip-cell strip-ident"><small>CALLSIGN</small><strong>{flight.callsign}</strong><em>{flight.type} · {LAX_GROUND_AIRCRAFT[flight.type].label}</em></span><span className="strip-cell"><small>STATUS</small><strong>{statusTimer(flight)}</strong></span><span className="strip-cell"><small>POSITION</small><strong>{location(flight)}</strong></span><span className="strip-cell"><small>RWY / SPD</small><strong>{flight.runway} · {Math.round(flight.speed)}KT</strong></span></button>)}</div></section>
           <footer className="side-footer"><div className="speed-control-heading"><span>Simulation speed</span><strong>{simulationSpeed === 1 ? "Real life" : `${simulationSpeed}×`}</strong></div><input className="simulation-speed-slider" type="range" min="0" max={SIMULATION_SPEEDS.length - 1} step="1" value={speedIndex} aria-label="Ground simulation speed" onChange={(event) => setSpeedIndex(Number.parseInt(event.currentTarget.value, 10))} /><div className="speed-scale" aria-hidden="true">{SIMULATION_SPEEDS.map((speed, index) => <span className={speedIndex === index ? "active" : ""} key={speed}>{speed === 1 ? "Real life" : `${speed}×`}</span>)}</div></footer>

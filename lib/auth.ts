@@ -1,5 +1,6 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
+import { haveIBeenPwned } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
 import * as schema from "../db/schema";
@@ -8,18 +9,37 @@ import { LEGAL_VERSION } from "./legal";
 
 const LOCAL_DEVELOPMENT_SECRET =
   "pacific-radar-local-development-secret-change-before-deploying";
+const MINIMUM_PASSWORD_LENGTH = 15;
+
+function normalizeDisplayName(value: unknown) {
+  if (typeof value !== "string") return null;
+  const name = value.normalize("NFKC").trim().replace(/\s+/gu, " ");
+
+  if (name.length < 2 || name.length > 80) return null;
+  if (!/[\p{L}\p{N}]/u.test(name)) return null;
+  if (!/^[\p{L}\p{M}\p{N} .,'’_-]+$/u.test(name)) return null;
+
+  return name;
+}
 
 export function createAuth() {
+  const isProduction = process.env.NODE_ENV === "production";
   const secret =
     process.env.BETTER_AUTH_SECRET ??
-    (process.env.NODE_ENV === "production"
-      ? undefined
-      : LOCAL_DEVELOPMENT_SECRET);
+    (isProduction ? undefined : LOCAL_DEVELOPMENT_SECRET);
 
-  if (!secret) {
+  if (!secret || secret.length < 32) {
     throw new Error(
       "BETTER_AUTH_SECRET is required in production. Configure a random secret of at least 32 characters in the hosting environment.",
     );
+  }
+
+  if (
+    isProduction &&
+    (!process.env.BETTER_AUTH_URL ||
+      new URL(process.env.BETTER_AUTH_URL).protocol !== "https:")
+  ) {
+    throw new Error("BETTER_AUTH_URL must be an HTTPS URL in production.");
   }
 
   return betterAuth({
@@ -36,7 +56,8 @@ export function createAuth() {
     }),
     emailAndPassword: {
       enabled: true,
-      minPasswordLength: 10,
+      autoSignIn: false,
+      minPasswordLength: MINIMUM_PASSWORD_LENGTH,
       maxPasswordLength: 128,
       requireEmailVerification: true,
       resetPasswordTokenExpiresIn: 30 * 60,
@@ -125,10 +146,34 @@ export function createAuth() {
         create: {
           before: async (user) => {
             if (user.termsAccepted !== true) return false;
+            const name = normalizeDisplayName(user.name);
+            if (!name) return false;
+
+            return {
+              data: {
+                ...user,
+                name,
+                termsAcceptedAt: new Date(),
+                termsVersion: LEGAL_VERSION,
+              },
+            };
           },
         },
       },
     },
+    session: {
+      expiresIn: 7 * 24 * 60 * 60,
+      updateAge: 12 * 60 * 60,
+      cookieCache: {
+        enabled: false,
+      },
+    },
+    plugins: [
+      haveIBeenPwned({
+        customPasswordCompromisedMessage:
+          "That password appears in known breach data. Choose a unique passphrase.",
+      }),
+    ],
     verification: {
       storeIdentifier: "hashed",
     },
@@ -136,17 +181,26 @@ export function createAuth() {
       enabled: true,
       storage: "database",
       window: 60,
-      max: 100,
+      max: 60,
       customRules: {
-        "/sign-in/email": { window: 60, max: 8 },
-        "/sign-up/email": { window: 60, max: 5 },
+        "/sign-in/email": { window: 60, max: 5 },
+        "/sign-up/email": { window: 300, max: 3 },
         "/send-verification-email": { window: 300, max: 3 },
-        "/request-password-reset": { window: 300, max: 3 },
-        "/reset-password": { window: 300, max: 5 },
-        "/delete-user": { window: 300, max: 3 },
+        "/request-password-reset": { window: 900, max: 3 },
+        "/reset-password": { window: 900, max: 3 },
+        "/delete-user": { window: 900, max: 3 },
       },
     },
     advanced: {
+      useSecureCookies: isProduction,
+      disableCSRFCheck: false,
+      disableOriginCheck: false,
+      defaultCookieAttributes: {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isProduction,
+        path: "/",
+      },
       ipAddress: {
         ipAddressHeaders: ["cf-connecting-ip"],
       },

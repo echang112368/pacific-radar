@@ -62,7 +62,7 @@ test("defines database-backed auth and a keyboard-accessible airport carousel", 
   assert.match(authGate, /authClient\.signUp\.email/);
   assert.match(authGate, /type="email"/);
   assert.match(authGate, /type="password"/);
-  assert.match(authGate, /minLength=\{10\}/);
+  assert.match(authGate, /MINIMUM_NEW_PASSWORD_LENGTH = 15/);
   assert.match(authGate, /<AirportCarousel displayName=/);
   assert.match(authServer, /getSessionCookie/);
   assert.match(authServer, /createAuth\(\)\.api\.getSession/);
@@ -97,6 +97,70 @@ test("defines database-backed auth and a keyboard-accessible airport carousel", 
   assert.match(css, /\.airport-carousel-stage/);
   assert.match(css, /\.airport-play-button/);
   assert.match(css, /@media \(max-width: 620px\)/);
+});
+
+test("hardens browser, request, input, password, and dependency boundaries", async () => {
+  const [
+    worker,
+    authConfig,
+    authGate,
+    userInput,
+    simulator,
+    groundSimulator,
+    laxGroundSimulator,
+    packageJson,
+    pnpmWorkspace,
+    securityWorkflow,
+    securityPolicy,
+    privacy,
+  ] = await Promise.all([
+    readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/auth.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/auth-gate.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/user-input.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/ground-simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/lax-ground-simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8"),
+    readFile(new URL("../.github/workflows/security.yml", import.meta.url), "utf8"),
+    readFile(new URL("../SECURITY.md", import.meta.url), "utf8"),
+    readFile(new URL("../app/privacy/page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(worker, /MAX_AUTH_REQUEST_BYTES = 32 \* 1024/);
+  assert.match(worker, /Content-Security-Policy/);
+  assert.match(worker, /object-src 'none'/);
+  assert.match(worker, /frame-ancestors 'none'/);
+  assert.match(worker, /X-Content-Type-Options/);
+  assert.match(worker, /Strict-Transport-Security/);
+  assert.match(worker, /rejectsCrossSiteMutation/);
+  assert.match(worker, /Unsupported request content type/);
+  assert.match(worker, /Cache-Control", "no-store"/);
+  assert.match(authConfig, /MINIMUM_PASSWORD_LENGTH = 15/);
+  assert.match(authConfig, /haveIBeenPwned/);
+  assert.match(authConfig, /useSecureCookies: isProduction/);
+  assert.match(authConfig, /disableCSRFCheck: false/);
+  assert.match(authConfig, /storeIdentifier: "hashed"/);
+  assert.match(authGate, /return "We could not complete that request/);
+  assert.doesNotMatch(authGate, /return message/);
+  assert.match(userInput, /MAX_SIMULATOR_COMMAND_LENGTH = 160/);
+  assert.match(userInput, /CONTROL_AND_DIRECTIONAL_CHARACTERS/);
+  for (const source of [simulator, groundSimulator, laxGroundSimulator]) {
+    assert.match(source, /sanitizeSimulatorCommand/);
+    assert.match(source, /maxLength=\{MAX_SIMULATOR_COMMAND_LENGTH\}/);
+    assert.doesNotMatch(source, /dangerouslySetInnerHTML|\.innerHTML\s*=|\beval\(/);
+  }
+  assert.match(simulator, /parseStoredHighScores/);
+  assert.match(packageJson, /"packageManager": "pnpm@11\.9\.0"/);
+  assert.match(packageJson, /"security:scan"/);
+  assert.match(pnpmWorkspace, /strictDepBuilds: true/);
+  assert.match(pnpmWorkspace, /minimumReleaseAge: 1440/);
+  assert.match(pnpmWorkspace, /blockExoticSubdeps: true/);
+  assert.doesNotMatch(pnpmWorkspace, /^\s{2}(esbuild|sharp|workerd): true$/m);
+  assert.match(securityWorkflow, /osv-scanner-reusable\.yml@8dc09193/);
+  assert.match(securityPolicy, /No control can guarantee/);
+  assert.match(privacy, /first five characters of its\s+SHA-1 hash/);
 });
 
 test("implements the complete secure account lifecycle and legal controls", async () => {

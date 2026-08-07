@@ -18,7 +18,7 @@ export function ForgotPasswordForm() {
 
     try {
       const result = await authClient.requestPasswordReset({
-        email,
+        email: email.trim().toLowerCase(),
         redirectTo: "/reset-password",
       });
       if (result.error) {
@@ -63,6 +63,7 @@ export function ForgotPasswordForm() {
           autoComplete="email"
           disabled={submitting}
           inputMode="email"
+          maxLength={254}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="controller@example.com"
           required

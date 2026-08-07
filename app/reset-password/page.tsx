@@ -13,7 +13,10 @@ type ResetPasswordPageProps = {
 
 export default async function ResetPasswordPage({ searchParams }: ResetPasswordPageProps) {
   const query = await searchParams;
-  const token = typeof query.token === "string" ? query.token : null;
+  const token =
+    typeof query.token === "string" && query.token.length <= 512
+      ? query.token
+      : null;
   const tokenError = !token || typeof query.error === "string";
 
   return (

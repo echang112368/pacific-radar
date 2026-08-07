@@ -65,6 +65,12 @@ export default function PrivacyPage() {
               timestamps, IP address, browser user agent, and rate-limit records.
             </li>
             <li>
+              When you create or reset a password, the first five characters of its
+              SHA-1 hash are sent to the Have I Been Pwned password service. The
+              password and complete hash are never sent; the partial-hash lookup lets
+              us reject passwords found in known breach data.
+            </li>
+            <li>
               Essential cookie data needed to keep you signed in and protect account
               requests.
             </li>
@@ -116,6 +122,10 @@ export default function PrivacyPage() {
             <li>
               Resend, which processes the recipient address and delivery information for
               transactional account emails.
+            </li>
+            <li>
+              Have I Been Pwned, which receives a five-character password-hash prefix
+              for privacy-preserving compromised-password screening.
             </li>
             <li>
               Professional advisers, authorities, or other parties when reasonably
@@ -175,7 +185,9 @@ export default function PrivacyPage() {
           <p>
             We use reasonable administrative and technical safeguards, including hashed
             passwords, verified-email access, short-lived single-use links, session
-            revocation after password reset, rate limiting, and encrypted HTTPS transport.
+            revocation after password reset, compromised-password screening, rate
+            limiting, strict input and request-size validation, browser security headers,
+            and encrypted HTTPS transport.
             No online service can guarantee absolute security. Use a unique password and
             contact us promptly if you believe your account was compromised.
           </p>

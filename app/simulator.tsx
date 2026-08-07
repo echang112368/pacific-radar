@@ -11,6 +11,10 @@ import {
   airportFor,
   runwayForEnd,
 } from "../lib/airports";
+import {
+  MAX_SIMULATOR_COMMAND_LENGTH,
+  sanitizeSimulatorCommand,
+} from "../lib/user-input";
 
 type FlightStatus =
   | "INBOUND"
@@ -120,6 +124,35 @@ type HighScore = {
   safeOperations?: number;
   elapsed: string;
 };
+
+function parseStoredHighScores(value: string | null): HighScore[] {
+  if (!value || value.length > 10_000) return [];
+
+  const parsed: unknown = JSON.parse(value);
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed.slice(0, 5).filter((entry): entry is HighScore => {
+    if (!entry || typeof entry !== "object") return false;
+    const score = entry as Record<string, unknown>;
+    const optionalCounts = [
+      score.safeLandings,
+      score.safeHandoffs,
+      score.safeOperations,
+    ];
+    return (
+      Number.isSafeInteger(score.score) &&
+      (score.score as number) >= 0 &&
+      (score.score as number) <= 100_000_000 &&
+      typeof score.elapsed === "string" &&
+      /^\d{2,3}:\d{2}$/u.test(score.elapsed) &&
+      optionalCounts.every(
+        (count) =>
+          count === undefined ||
+          (Number.isSafeInteger(count) && (count as number) >= 0 && (count as number) <= 100_000),
+      )
+    );
+  });
+}
 
 const SIMULATION_TICKS_PER_SECOND = 4;
 const FEET_PER_NAUTICAL_MILE = 6076.12;
@@ -2032,7 +2065,7 @@ export function RadarSimulator({
       const saved = window.localStorage.getItem(
         `pacific-radar-high-scores-${airportCode.toLowerCase()}`,
       );
-      return saved ? (JSON.parse(saved) as HighScore[]) : [];
+      return parseStoredHighScores(saved);
     } catch {
       return [];
     }
@@ -2250,8 +2283,9 @@ export function RadarSimulator({
 
   const transmit = (event?: FormEvent) => {
     event?.preventDefault();
-    if (!command.trim()) return;
-    dispatchCommand(command);
+    const safeCommand = sanitizeSimulatorCommand(command);
+    if (!safeCommand.trim()) return;
+    dispatchCommand(safeCommand);
     setCommand("");
     inputRef.current?.focus();
   };
@@ -2608,7 +2642,10 @@ export function RadarSimulator({
                   id="command"
                   aria-label="ATC command"
                   value={command}
-                  onChange={(event) => setCommand(event.target.value)}
+                  maxLength={MAX_SIMULATOR_COMMAND_LENGTH}
+                  onChange={(event) =>
+                    setCommand(sanitizeSimulatorCommand(event.target.value))
+                  }
                   autoComplete="off"
                   spellCheck={false}
                 />

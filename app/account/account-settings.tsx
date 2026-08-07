@@ -101,6 +101,7 @@ export function AccountSettings({ name, email, emailVerified }: AccountSettingsP
             <input
               autoComplete="off"
               disabled={submitting}
+              maxLength={6}
               onChange={(event) => setConfirmation(event.target.value)}
               pattern="DELETE"
               required

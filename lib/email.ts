@@ -10,6 +10,38 @@ type AccountEmail = {
   expires: string;
 };
 
+function validateAccountEmail(email: AccountEmail) {
+  if (
+    email.to.length > 254 ||
+    /[\r\n]/u.test(email.to) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email.to)
+  ) {
+    throw new Error("Refusing to send account email to an invalid address.");
+  }
+
+  const actionUrl = new URL(email.url);
+  const configuredBaseUrl = process.env.BETTER_AUTH_URL;
+  const configuredOrigin = configuredBaseUrl
+    ? new URL(configuredBaseUrl).origin
+    : null;
+  const isLocalDevelopment =
+    process.env.NODE_ENV !== "production" &&
+    ["localhost", "127.0.0.1"].includes(actionUrl.hostname);
+
+  if (
+    actionUrl.username ||
+    actionUrl.password ||
+    actionUrl.href.length > 2048 ||
+    !actionUrl.pathname.startsWith("/api/auth/") ||
+    (configuredOrigin
+      ? actionUrl.origin !== configuredOrigin
+      : !isLocalDevelopment) ||
+    (process.env.NODE_ENV === "production" && actionUrl.protocol !== "https:")
+  ) {
+    throw new Error("Refusing to send an untrusted account action URL.");
+  }
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -54,6 +86,8 @@ function emailText(email: AccountEmail) {
 }
 
 export async function sendAccountEmail(email: AccountEmail) {
+  validateAccountEmail(email);
+
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
 
@@ -69,6 +103,8 @@ export async function sendAccountEmail(email: AccountEmail) {
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
+    redirect: "error",
+    signal: AbortSignal.timeout(10_000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
@@ -86,7 +122,6 @@ export async function sendAccountEmail(email: AccountEmail) {
   });
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Transactional email failed (${response.status}): ${detail}`);
+    throw new Error(`Transactional email failed with status ${response.status}.`);
   }
 }

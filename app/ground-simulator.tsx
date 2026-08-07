@@ -21,6 +21,10 @@ import {
   projectKsmoGroundPoint,
   shortestGroundRoute,
 } from "../lib/ksmo-ground";
+import {
+  MAX_SIMULATOR_COMMAND_LENGTH,
+  sanitizeSimulatorCommand,
+} from "../lib/user-input";
 
 type GroundStatus =
   | "PARKED"
@@ -1123,7 +1127,7 @@ export function GroundSimulator() {
 
   const transmit = (event: FormEvent) => {
     event.preventDefault();
-    const trimmed = command.trim();
+    const trimmed = sanitizeSimulatorCommand(command).trim();
     if (!trimmed) return;
     const global = trimmed.toUpperCase();
     if (global === "HELP") setShowHelp(true);
@@ -1373,7 +1377,7 @@ export function GroundSimulator() {
 
           <section className="command-deck" aria-label="Ground clearance console">
             <form className="command-form" onSubmit={transmit}>
-              <div className="command-input-wrap"><span className="prompt-symbol">›</span><input ref={inputRef} aria-label="Ground control command" autoComplete="off" spellCheck={false} value={command} onChange={(event) => setCommand(event.target.value)} /><button type="submit">Send</button></div>
+              <div className="command-input-wrap"><span className="prompt-symbol">›</span><input ref={inputRef} aria-label="Ground control command" autoComplete="off" maxLength={MAX_SIMULATOR_COMMAND_LENGTH} spellCheck={false} value={command} onChange={(event) => setCommand(sanitizeSimulatorCommand(event.target.value))} /><button type="submit">Send</button></div>
             </form>
           </section>
 

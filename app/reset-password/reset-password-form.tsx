@@ -32,10 +32,15 @@ export function ResetPasswordForm({ token, tokenError }: ResetPasswordFormProps)
         token,
       });
       if (result.error) {
+        const detail = result.error.message ?? "";
         setError(
-          /token|expired/i.test(result.error.message ?? "")
+          /token|expired/i.test(detail)
             ? "This reset link is invalid or has expired. Request a new one."
-            : result.error.message ?? "We could not reset your password.",
+            : /compromised|breach data/i.test(detail)
+              ? "That password appears in known breach data. Choose a unique passphrase."
+              : /password.*short|at least 15/i.test(detail)
+                ? "Use a password or passphrase of at least 15 characters."
+                : "We could not reset your password. Check the new password and try again.",
         );
         return;
       }
@@ -81,9 +86,9 @@ export function ResetPasswordForm({ token, tokenError }: ResetPasswordFormProps)
           autoComplete="new-password"
           disabled={submitting}
           maxLength={128}
-          minLength={10}
+          minLength={15}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="At least 10 characters"
+          placeholder="At least 15 characters"
           required
           type="password"
           value={password}
@@ -95,14 +100,17 @@ export function ResetPasswordForm({ token, tokenError }: ResetPasswordFormProps)
           autoComplete="new-password"
           disabled={submitting}
           maxLength={128}
-          minLength={10}
+          minLength={15}
           onChange={(event) => setConfirmPassword(event.target.value)}
           required
           type="password"
           value={confirmPassword}
         />
       </label>
-      <p className="password-guidance">10–128 characters. A unique passphrase is recommended.</p>
+      <p className="password-guidance">
+        15–128 characters. Known compromised passwords are rejected; a unique
+        passphrase is recommended.
+      </p>
       {error ? <p className="auth-error" role="alert">{error}</p> : null}
       <button className="login-button" disabled={submitting} type="submit">
         <span>{submitting ? "Updating…" : "Update password"}</span>
