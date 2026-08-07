@@ -176,12 +176,7 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
         </header>
 
         <section className="role-select" aria-labelledby="role-select-title">
-          <p className="airport-carousel-label">SELECT POSITION</p>
           <h1 id="role-select-title">Choose your control room</h1>
-          <p className="role-select-intro">
-            Work the airspace from the tower scope, or manage every movement on
-            the airport surface.
-          </p>
           <div className="role-card-grid">
             <button
               className="role-card role-card-atc"
@@ -222,7 +217,6 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
               <span className="role-card-action">Select Ground <b aria-hidden="true">→</b></span>
             </button>
           </div>
-          <p className="role-availability">Ground Control is available at KSMO · Santa Monica and KLAX · Los Angeles International</p>
         </section>
         <footer className="airport-select-footer">
           <span>Entertainment simulation · Not for operational use</span>
@@ -230,7 +224,6 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
           </nav>
-          <span>Account protected</span>
         </footer>
       </main>
     );

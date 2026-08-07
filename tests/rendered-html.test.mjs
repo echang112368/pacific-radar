@@ -1202,7 +1202,10 @@ test("offers KSMO ground control as a researched separate game mode", async () =
     access(new URL("../public/ksmo-satellite.jpg", import.meta.url)),
   ]);
 
-  assert.match(carousel, /SELECT POSITION/);
+  assert.doesNotMatch(carousel, /SELECT POSITION/);
+  assert.doesNotMatch(carousel, /Work the airspace from the tower scope/);
+  assert.doesNotMatch(carousel, /Ground Control is available at KSMO/);
+  assert.doesNotMatch(carousel, /Account protected/);
   assert.match(carousel, /Air Traffic Control/);
   assert.match(carousel, /Ground Control/);
   assert.match(carousel, /selectedMode/);
