@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   AirportCode,
@@ -124,6 +125,8 @@ type HighScore = {
   safeOperations?: number;
   elapsed: string;
 };
+
+const COMPASS_HEADINGS = Array.from({ length: 12 }, (_, index) => index * 30);
 
 function parseStoredHighScores(value: string | null): HighScore[] {
   if (!value || value.length > 10_000) return [];
@@ -2580,6 +2583,32 @@ export function RadarSimulator({
 
               <div className="map-attribution">
                 Imagery © Esri, Maxar, Earthstar Geographics
+              </div>
+
+              <div
+                className="heading-compass"
+                aria-label="Heading compass. North is 000 degrees, east 090, south 180, and west 270."
+              >
+                <span className="heading-compass-ring" aria-hidden="true" />
+                <span className="heading-compass-crosshair" aria-hidden="true" />
+                <span className="heading-compass-center" aria-hidden="true" />
+                {COMPASS_HEADINGS.map((heading) => (
+                  <span
+                    className={`heading-compass-mark heading-${String(heading).padStart(3, "0")}`}
+                    key={heading}
+                    style={{
+                      "--heading": `${heading}deg`,
+                      "--counter-heading": `${-heading}deg`,
+                    } as CSSProperties}
+                    aria-hidden="true"
+                  >
+                    <span>{String(heading).padStart(3, "0")}</span>
+                  </span>
+                ))}
+                <span className="heading-compass-cardinal heading-north" aria-hidden="true">N</span>
+                <span className="heading-compass-cardinal heading-east" aria-hidden="true">E</span>
+                <span className="heading-compass-cardinal heading-south" aria-hidden="true">S</span>
+                <span className="heading-compass-cardinal heading-west" aria-hidden="true">W</span>
               </div>
 
               {showScale && (

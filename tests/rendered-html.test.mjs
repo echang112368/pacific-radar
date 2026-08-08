@@ -436,6 +436,19 @@ test("keeps horizontal exit labels inside the radar viewport", async () => {
   );
 });
 
+test("shows an aviation heading compass in the lower-left radar corner", async () => {
+  const [simulator, css] = await Promise.all([
+    readFile(new URL("../app/simulator.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(simulator, /COMPASS_HEADINGS/);
+  assert.match(simulator, /Heading compass\. North is 000 degrees/);
+  assert.match(simulator, /String\(heading\)\.padStart\(3, "0"\)/);
+  assert.match(css, /\.heading-compass\s*\{[^}]*left:\s*20px;[^}]*bottom:\s*20px/s);
+  assert.match(css, /\.heading-compass-mark/);
+});
+
 test("uses stabilized final speeds and a visible braking rollout", async () => {
   const simulator = await readFile(
     new URL("../app/simulator.tsx", import.meta.url),

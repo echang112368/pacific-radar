@@ -611,6 +611,103 @@ h2 {
   font-size: 7px;
 }
 
+.heading-compass {
+  position: absolute;
+  z-index: 8;
+  left: 20px;
+  bottom: 20px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(4, 28, 26, 0.18) 0 54%, rgba(4, 22, 20, 0.72) 55% 100%);
+  box-shadow: 0 0 24px rgba(0, 8, 8, 0.28);
+  color: rgba(202, 244, 228, 0.82);
+  font-family: var(--mono);
+  pointer-events: none;
+}
+
+.heading-compass-ring {
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(159, 231, 206, 0.48);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 5px rgba(96, 242, 189, 0.025);
+}
+
+.heading-compass-crosshair,
+.heading-compass-crosshair::after {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  width: 1px;
+  height: 114px;
+  background: rgba(159, 231, 206, 0.16);
+  content: "";
+}
+
+.heading-compass-crosshair::after {
+  left: -57px;
+  top: 57px;
+  transform: rotate(90deg);
+  transform-origin: center;
+}
+
+.heading-compass-center {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--mint-strong);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.heading-compass-mark {
+  --heading: 0deg;
+  --counter-heading: 0deg;
+  position: absolute;
+  left: calc(50% - 1px);
+  top: 8px;
+  width: 2px;
+  height: 13px;
+  background: rgba(190, 240, 222, 0.72);
+  transform: rotate(var(--heading));
+  transform-origin: 1px 67px;
+}
+
+.heading-compass-mark span {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  color: rgba(218, 247, 235, 0.76);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  transform: translateX(-50%) rotate(var(--counter-heading));
+}
+
+.heading-compass-mark.heading-000,
+.heading-compass-mark.heading-090,
+.heading-compass-mark.heading-180,
+.heading-compass-mark.heading-270 {
+  height: 17px;
+  background: var(--mint-strong);
+}
+
+.heading-compass-cardinal {
+  position: absolute;
+  color: var(--mint-strong);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.heading-north { left: 50%; top: 42px; transform: translateX(-50%); }
+.heading-east { right: 42px; top: 50%; transform: translateY(-50%); }
+.heading-south { left: 50%; bottom: 41px; transform: translateX(-50%); }
+.heading-west { left: 42px; top: 50%; transform: translateY(-50%); }
+
 .scope-scale {
   position: absolute;
   left: 14px;
@@ -621,6 +718,10 @@ h2 {
   font-family: var(--mono);
   font-size: 7px;
   pointer-events: none;
+}
+
+.heading-compass + .scope-scale {
+  bottom: 184px;
 }
 
 .scope-scale span {
@@ -1579,6 +1680,13 @@ body .strips-section * {
   .radar-map {
     height: 64vh;
     min-height: 430px;
+  }
+
+  .heading-compass {
+    left: 14px;
+    bottom: 14px;
+    transform: scale(0.78);
+    transform-origin: left bottom;
   }
 
   .command-form {
