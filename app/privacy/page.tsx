@@ -120,8 +120,8 @@ export default function PrivacyPage() {
               OpenAI Sites and Cloudflare.
             </li>
             <li>
-              Resend, which processes the recipient address and delivery information for
-              transactional account emails.
+              Google Gmail, which processes the recipient address, message content, and
+              delivery information for transactional account emails.
             </li>
             <li>
               Have I Been Pwned, which receives a five-character password-hash prefix

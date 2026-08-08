@@ -4931,82 +4931,25 @@ body .strips-section * {
   display: block;
   overflow: hidden;
   border-bottom: 1px solid rgba(181, 243, 217, 0.12);
-  background:
-    linear-gradient(rgba(5, 38, 30, 0.48), rgba(3, 19, 15, 0.84)),
-    url("/ksmo-terminal-satellite.jpg") center / cover;
+  background-color: #07130f;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%, cover;
+}
+
+.role-atc-visual {
+  background-image:
+    linear-gradient(rgba(5, 38, 30, 0.08), rgba(3, 19, 15, 0.52)),
+    url("/atc-control-room.jpg");
+  background-position: center, center 52%;
 }
 
 .role-card-ground .role-card-visual {
-  background:
-    linear-gradient(rgba(31, 35, 20, 0.22), rgba(3, 19, 15, 0.72)),
-    url("/ksmo-satellite.jpg") center / cover;
-}
-
-.role-radar-visual > i {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  border: 1px solid rgba(96, 242, 189, 0.48);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.role-radar-visual > i:nth-child(1) { width: 60px; height: 60px; }
-.role-radar-visual > i:nth-child(2) { width: 112px; height: 112px; }
-.role-radar-visual > i:nth-child(3) { width: 168px; height: 168px; }
-
-.role-radar-visual > b {
-  position: absolute;
-  left: 60%;
-  top: 35%;
-  color: var(--mint-strong);
-  font-size: 24px;
-  text-shadow: 0 0 18px rgba(96, 242, 189, 0.9);
-}
-
-.role-ground-visual .role-runway,
-.role-ground-visual .role-taxiway {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  display: block;
-  height: 260px;
-  transform: translate(-50%, -50%) rotate(43deg);
-  transform-origin: center;
-}
-
-.role-ground-visual .role-runway {
-  width: 24px;
-  border: 1px solid rgba(228, 240, 234, 0.62);
-  background: rgba(18, 25, 22, 0.74);
-}
-
-.role-ground-visual .role-runway::after {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 1px;
-  height: 100%;
-  background: repeating-linear-gradient(white 0 8px, transparent 8px 18px);
-  content: "";
-}
-
-.role-ground-visual .role-taxiway {
-  width: 2px;
-  background: repeating-linear-gradient(var(--amber) 0 9px, transparent 9px 15px);
-}
-
-.role-ground-visual .role-taxiway-a { margin-left: -39px; }
-.role-ground-visual .role-taxiway-b { margin-left: 39px; }
-
-.role-ground-visual > b {
-  position: absolute;
-  left: 57%;
-  top: 38%;
-  color: var(--amber);
-  font-size: 23px;
-  text-shadow: 0 0 12px rgba(245, 195, 107, 0.8);
-  transform: rotate(43deg);
+  background-color: #11150e;
+  background-image:
+    linear-gradient(rgba(31, 35, 20, 0.06), rgba(3, 19, 15, 0.48)),
+    url("/ground-control-room.jpg");
+  background-position: center, center 58%;
 }
 
 .role-card-copy {

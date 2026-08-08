@@ -85,43 +85,144 @@ function emailText(email: AccountEmail) {
   return `${email.heading}\n\nHello ${email.name || "Controller"},\n\n${email.message}\n\n${email.actionLabel}: ${email.url}\n\nThis link expires ${email.expires}. If you did not request this, you can safely ignore this email.\n\nPacific Radar`;
 }
 
+function bytesToBase64(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+
+  return btoa(binary);
+}
+
+function wrapBase64(value: string) {
+  return bytesToBase64(value).match(/.{1,76}/gu)?.join("\r\n") ?? "";
+}
+
+function encodeMimeHeader(value: string) {
+  if (/^[\x20-\x7e]*$/u.test(value)) return value;
+  return `=?UTF-8?B?${bytesToBase64(value)}?=`;
+}
+
+function validateHeader(value: string, label: string) {
+  if (!value.trim() || /[\r\n]/u.test(value)) {
+    throw new Error(`Refusing to send account email with an invalid ${label}.`);
+  }
+}
+
+function buildMimeMessage(email: AccountEmail, senderEmail: string) {
+  const senderName = process.env.GMAIL_SENDER_NAME?.trim() || "Pacific Radar";
+  const replyTo = process.env.GMAIL_REPLY_TO_EMAIL?.trim();
+  const boundary = `pacific-radar-${crypto.randomUUID()}`;
+
+  validateHeader(senderName, "sender name");
+  validateHeader(email.subject, "subject");
+  validateHeader(senderEmail, "sender address");
+  if (replyTo) validateHeader(replyTo, "reply-to address");
+
+  const headers = [
+    `From: ${encodeMimeHeader(senderName)} <${senderEmail}>`,
+    `To: ${email.to}`,
+    `Subject: ${encodeMimeHeader(email.subject)}`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/alternative; boundary=\"${boundary}\"`,
+    ...(replyTo ? [`Reply-To: ${replyTo}`] : []),
+  ];
+  const parts = [
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    wrapBase64(emailText(email)),
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    wrapBase64(emailHtml(email)),
+    `--${boundary}--`,
+    "",
+  ];
+
+  return [...headers, "", ...parts].join("\r\n");
+}
+
+async function getGmailAccessToken(
+  clientId: string,
+  clientSecret: string,
+  refreshToken: string,
+) {
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    redirect: "error",
+    signal: AbortSignal.timeout(10_000),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gmail OAuth token exchange failed with status ${response.status}.`);
+  }
+
+  const token = (await response.json()) as { access_token?: unknown };
+  if (typeof token.access_token !== "string" || !token.access_token) {
+    throw new Error("Gmail OAuth token exchange returned no access token.");
+  }
+
+  return token.access_token;
+}
+
 export async function sendAccountEmail(email: AccountEmail) {
   validateAccountEmail(email);
 
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+  const senderEmail = process.env.GMAIL_SENDER_EMAIL?.trim();
 
-  if (!apiKey || !from) {
+  if (!clientId || !clientSecret || !refreshToken || !senderEmail) {
     if (process.env.NODE_ENV !== "production") {
       console.info(`[Pacific Radar email preview] ${email.to}: ${email.url}`);
       return;
     }
     throw new Error(
-      "Transactional email is not configured. Set RESEND_API_KEY and EMAIL_FROM.",
+      "Transactional email is not configured. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, and GMAIL_SENDER_EMAIL.",
     );
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(senderEmail)) {
+    throw new Error("GMAIL_SENDER_EMAIL must be a valid email address.");
+  }
+
+  const accessToken = await getGmailAccessToken(
+    clientId,
+    clientSecret,
+    refreshToken,
+  );
+  const raw = bytesToBase64(buildMimeMessage(email, senderEmail))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
+  const response = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    {
     method: "POST",
     redirect: "error",
     signal: AbortSignal.timeout(10_000),
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      from,
-      to: [email.to],
-      subject: email.subject,
-      html: emailHtml(email),
-      text: emailText(email),
-      ...(process.env.REPLY_TO_EMAIL
-        ? { reply_to: process.env.REPLY_TO_EMAIL }
-        : {}),
-    }),
-  });
+      body: JSON.stringify({ raw }),
+    },
+  );
 
   if (!response.ok) {
-    throw new Error(`Transactional email failed with status ${response.status}.`);
+    throw new Error(`Gmail message send failed with status ${response.status}.`);
   }
 }

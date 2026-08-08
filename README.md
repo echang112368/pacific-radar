@@ -73,11 +73,19 @@ as the project advances.
 ## Account email configuration
 
 Pacific Radar sends verification, password-reset, and deletion-confirmation
-messages through the Resend Email API. Copy `.env.example` to `.env.local` for
-local development and configure the equivalent values in the hosting
-environment for production. `BETTER_AUTH_URL` must be the public site origin,
-`BETTER_AUTH_SECRET` must be a unique random secret of at least 32 characters,
-and `EMAIL_FROM` must use a sender domain verified by the email provider.
+messages through the Gmail API. Copy `.env.example` to `.env.local` for local
+development and configure the equivalent values in the hosting environment for
+production. `BETTER_AUTH_URL` must be the public site origin and
+`BETTER_AUTH_SECRET` must be a unique random secret of at least 32 characters.
+
+In Google Cloud, enable the Gmail API and create an OAuth 2.0 client. Authorize
+the sending Google account for offline access with the
+`https://www.googleapis.com/auth/gmail.send` scope, then put the client ID,
+client secret, resulting refresh token, and sender address in the corresponding
+`GMAIL_*` variables. An API key alone cannot send Gmail messages. The sender
+must be the account that authorized the refresh token or one of its configured
+Gmail “Send mail as” aliases. Keep all OAuth values server-side; never expose
+them through a `NEXT_PUBLIC_*` variable or commit a populated environment file.
 
 Without email credentials, local development prints the single-use account
 link to the server console. Production deliberately fails closed instead of

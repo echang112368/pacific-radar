@@ -183,10 +183,10 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
               onClick={() => setSelectedMode("atc")}
               type="button"
             >
-              <span className="role-card-visual role-radar-visual" aria-hidden="true">
-                <i /><i /><i />
-                <b>✦</b>
-              </span>
+              <span
+                className="role-card-visual role-atc-visual"
+                aria-hidden="true"
+              />
               <span className="role-card-copy">
                 <small>RADAR · TOWER</small>
                 <strong>Air Traffic Control</strong>
@@ -203,12 +203,10 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
               }}
               type="button"
             >
-              <span className="role-card-visual role-ground-visual" aria-hidden="true">
-                <i className="role-runway" />
-                <i className="role-taxiway role-taxiway-a" />
-                <i className="role-taxiway role-taxiway-b" />
-                <b>✈</b>
-              </span>
+              <span
+                className="role-card-visual role-ground-visual"
+                aria-hidden="true"
+              />
               <span className="role-card-copy">
                 <small>SURFACE · 121.9</small>
                 <strong>Ground Control</strong>
@@ -219,7 +217,24 @@ export function AirportCarousel({ displayName }: AirportCarouselProps) {
           </div>
         </section>
         <footer className="airport-select-footer">
-          <span>Entertainment simulation · Not for operational use</span>
+          <span>
+            Entertainment simulation · Not for operational use · Photos: {" "}
+            <a
+              href="https://commons.wikimedia.org/wiki/File:Radar_monitoring_current_Dulles_air_traffic_(11139815845).jpg"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Antonio Zugaldia / CC BY 2.0
+            </a>{" "}
+            · {" "}
+            <a
+              href="https://www.pexels.com/photo/planes-taxiing-on-the-airport-apron-18090320/"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Max Chen / Pexels
+            </a>
+          </span>
           <nav aria-label="Legal">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>

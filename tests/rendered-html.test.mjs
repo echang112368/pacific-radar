@@ -227,7 +227,12 @@ test("implements the complete secure account lifecycle and legal controls", asyn
   assert.match(authGate, /termsAccepted/);
   assert.match(authClient, /inferAdditionalFields/);
   assert.match(email, /https:\/\/api\.resend\.com\/emails/);
-  assert.match(email, /RESEND_API_KEY/);
+  assert.match(email, /GMAIL_CLIENT_ID/);
+  assert.match(email, /GMAIL_CLIENT_SECRET/);
+  assert.match(email, /GMAIL_REFRESH_TOKEN/);
+  assert.match(email, /GMAIL_SENDER_EMAIL/);
+  assert.match(email, /oauth2\.googleapis\.com\/token/);
+  assert.match(email, /gmail\.googleapis\.com\/gmail\/v1\/users\/me\/messages\/send/);
   assert.match(email, /process\.env\.NODE_ENV !== "production"/);
   assert.match(schema, /termsAccepted/);
   assert.match(schema, /termsAcceptedAt/);
