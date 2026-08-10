@@ -226,7 +226,6 @@ test("implements the complete secure account lifecycle and legal controls", asyn
   assert.match(authGate, /href="\/privacy"/);
   assert.match(authGate, /termsAccepted/);
   assert.match(authClient, /inferAdditionalFields/);
-  assert.match(email, /https:\/\/api\.resend\.com\/emails/);
   assert.match(email, /GMAIL_CLIENT_ID/);
   assert.match(email, /GMAIL_CLIENT_SECRET/);
   assert.match(email, /GMAIL_REFRESH_TOKEN/);
