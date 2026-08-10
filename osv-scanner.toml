@@ -1,0 +1,14 @@
+# vinext uses image-size only while building site assets. Pacific Radar does not
+# accept or process user-supplied JXL, HEIF, or ICNS images. image-size 2.0.2 is
+# currently the newest release and the advisories have no patched version.
+# These narrow exceptions expire so a future fixed release must be reviewed.
+
+[[IgnoredVulns]]
+id = "GHSA-5p2g-fcmc-qvqq"
+ignoreUntil = 2026-09-09
+reason = "Unpatched transitive vinext build dependency; no untrusted JXL or HEIF input is processed."
+
+[[IgnoredVulns]]
+id = "GHSA-w3rx-r6r6-pgpr"
+ignoreUntil = 2026-09-09
+reason = "Unpatched transitive vinext build dependency; no untrusted ICNS input is processed."
